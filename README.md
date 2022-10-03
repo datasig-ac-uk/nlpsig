@@ -29,13 +29,15 @@ conda activate py38esig
 * Install dependencies:
 
 ```bash
-pip install torch==1.8.1
-signatory==1.2.6.1.8.1
-pip install matplotlib
-pip install pandas
-pip install notebook
-pip install tqdm
-pip install datasets
 pip install sentence-transformers
+pip install torch==1.9.0
+pip install signatory==1.2.6.1.9.0
+pip install matplotlib
+pip install datasets
+pip install tqdm
+pip install pandas
 pip install umap-learn
+pip install notebook
 ```
+
+python -m ipykernel install --user --name py38esig --display-name "Python (py38esig)"

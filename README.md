@@ -29,9 +29,7 @@ conda activate py38esig
 * Install dependencies:
 
 ```bash
-pip install sentence-transformers
-pip install torch==1.9.0
-pip install signatory==1.2.6.1.9.0
+pip install torch==1.8.1 signatory==1.2.6.1.8.1 sentence-transformers
 pip install matplotlib
 pip install datasets
 pip install tqdm

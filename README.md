@@ -7,7 +7,7 @@
 
 
 <p align="center">
-<img src="./figs/architecture_figure.png" alt="Model architecture" width="500">
+<img src="./figs/architecture_figure.png" alt="Model architecture">
 </p>
 
 ## Installation

@@ -1,7 +1,7 @@
 <div align="center">
     <br>
     <p align="center">
-    <h2>BERT and Path Signatures</h2>
+    <h2>Extract features from textual data using BERT and Path signature</h2>
     </p>
 </div>
 

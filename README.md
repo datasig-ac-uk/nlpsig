@@ -36,6 +36,7 @@ pip install tqdm
 pip install pandas
 pip install umap-learn
 pip install notebook
+pip install distinctipy
 ```
 
 python -m ipykernel install --user --name py38esig --display-name "Python (py38esig)"

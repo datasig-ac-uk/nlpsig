@@ -166,7 +166,11 @@ class DyadicSignatures:
         
             if len(ind_x!=0):
                 dyadic_ind = int(ind_x.max().item())
-                dyadic_int_ind = (last_index_dt_all[sample,:]==dyadic_ind).nonzero(as_tuple=True)[0].item()
+                try:
+                    dyadic_int_ind = (last_index_dt_all[sample,:]==dyadic_ind).nonzero(as_tuple=True)[0].item()
+                except Exception as err:
+                    print(f"[WARNING] {err}")
+                    dyadic_int_ind = (last_index_dt_all[sample,:]==dyadic_ind).nonzero(as_tuple=True)[0][0].item()
 
                 #first part of path 
                 sig_intervals = sig_combined[sample,dyadic_int_ind,:].reshape(1, sig_combined.shape[2])

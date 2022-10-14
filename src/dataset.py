@@ -1,4 +1,3 @@
-import numpy as np 
 import pandas as pd
 
 def get_modeling_dataframe(annotations, embeddings_sentence, embeddings_reduced=[]):

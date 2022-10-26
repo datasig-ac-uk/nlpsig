@@ -4,16 +4,14 @@ import pandas as pd
 import re
 
 class TimeFeatures:
-
     def __init__(self):
         #How many hours in a year?
         self.total_year_hours = 365*24
 
-    def time_fraction(self, x):
+    def time_fraction(self, x: pd.Timestamp) -> float:
         return x.year + abs(x - datetime.datetime(x.year, 1,1,0)).total_seconds() / 3600.0 / self.total_year_hours
 
-    def get_time_features(self, df):
-
+    def get_time_features(self, df: pd.DataFrame) -> pd.DataFrame:
         #obtain time encoding
         df['time_encoding'] = df['datetime'].map(lambda t: self.time_fraction(t))
 
@@ -42,9 +40,12 @@ class TimeFeatures:
 class Padding:
     def __init__(self):
         self.time_n = 40
-
     
-    def _pad_timeline(self, df, id_counts, index, i):
+    def _pad_timeline(self,
+                      df: pd.DataFrame,
+                      id_counts: pd.Series,
+                      index: int,
+                      i) -> pd.DataFrame:
         padding_n = self.time_n - id_counts[index]
 
         data_dict = {'timeline_id': [index], 'label': [-1], 'time_encoding': [0]} 
@@ -63,20 +64,22 @@ class Padding:
 
         return df_pad
 
-    def pad_timelines(self, df):
+    def pad_timelines(self, df: pd.DataFrame) -> np.array:
 
         #dataset specifics 
         id_counts = df.groupby(['timeline_id'])['timeline_id'].count()#.set_index(['timeline_id'])
         self.time_n = id_counts.max()
 
         #iterate to create slices
-        i=0
+        i = 0
         for c in id_counts.index:
-            df = self._pad_timeline(df[['timeline_id','label','time_encoding']+[c for c in df.columns if re.match("^d\w*[0-9]", c)]], id_counts, c, i)
+            place_holder_df = df[['timeline_id', 'label', 'time_encoding'] +
+                                 [c for c in df.columns if re.match("^d\w*[0-9]", c)]]
+            df = self._pad_timeline(df = place_holder_df,
+                                    id_counts = id_counts,
+                                    index = c,
+                                    i = i)
             i += self.time_n
         
         #reshape data
-        return np.array(df).reshape(id_counts.shape[0],self.time_n, df.shape[1] )
-
-
-
+        return np.array(df).reshape(id_counts.shape[0], self.time_n, df.shape[1])

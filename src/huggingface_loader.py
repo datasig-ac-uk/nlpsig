@@ -17,13 +17,14 @@ class loadHF:
         self.split_name = split_name
         self.dataset = None
     
-    def load_preprocessed_df(self, default_preprocess: str = "newspop") -> None:
+    def load_preprocessed_df(self,
+                             default_preprocess: str = "newspop") -> None:
         """
         Main interface for the user
         Load and preprocess a dataset from HuggingFace
         """
         self.load_df()
-        self.preprocess_df(default_preprocess=default_preprocess)
+        self.preprocess_df(default_preprocess = default_preprocess)
     
     def load_dataset(self) -> None:
         """

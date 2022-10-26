@@ -46,7 +46,7 @@ class plotEmbedding:
         """
         embed_name = f"{method}_{dim}"
         if (not overwrite) and (embed_name in self.embed):
-            print(f"[INFO] {method} with dim: {dim} is already calculated." +
+            print(f"[INFO] {method} with dim={dim} is already calculated. " +
                   "You can set overwrite = True to recompute.")
             return
         implemented_methods = ["pca", "umap", "tsne"]

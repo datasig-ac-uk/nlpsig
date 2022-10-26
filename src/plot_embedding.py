@@ -60,7 +60,8 @@ class plotEmbedding:
             elif method == "umap":
                 import umap
                 reducer = umap.UMAP(n_components = dim,
-                                    random_state = random_state)
+                                    random_state = random_state,
+                                    transform_seed = random_state)
                 reducer.fit_transform(self.x_data_std)
                 self.embed[embed_name] = reducer.embedding_
             elif method == "tsne":

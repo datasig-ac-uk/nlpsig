@@ -1,42 +1,57 @@
+from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import umap
 import numpy as np
+from typing import Optional
 
 class DimensionalityReduction:
     def __init__(self,
                  method: str = "ppapca",
-                 components: int = 5) -> None:
+                 components: int = 5,
+                 standardise: bool = False,
+                 dim_reduction_kwargs: Optional[dict] = None) -> None:
         self.method = method
         self.components = components
+        self.standardise = standardise
+        self.kwargs = dim_reduction_kwargs
         self.embedding = None
 
     def fit_transform(self,
                       embeddings_sentence: np.array,
                       random_state: int = 42) -> None:
-        ### to do: allow passing of arguments into UMAP, TSNE, PCA functions
         implemented_methods = ["pca",
                                "umap",
                                "tsne",
                                "ppapca",
                                "ppapcappa"]
+        if self.standardise:
+            embeddings_sentence = StandardScaler().fit_transform(embeddings_sentence)
         if self.method in implemented_methods:
             if self.method == "pca":
-                pca = PCA(n_components = self.components)
+                if self.kwargs is None:
+                    self.kwargs = {}
+                pca = PCA(n_components = self.components,
+                          **self.kwargs)
                 self.embedding = pca.fit_transform(embeddings_sentence)
             elif self.method == "umap":
+                if self.kwargs is None:
+                    self.kwargs = {"min_dist": 0.99,
+                                   "n_neighbors": 50,
+                                   "metric": "cosine"}
                 reducer = umap.UMAP(n_components = self.components,
-                                    min_dist = 0.99,
-                                    n_neighbors = 50,
-                                    metric = 'cosine',
                                     random_state = random_state,
-                                    transform_seed = random_state)
+                                    transform_seed = random_state,
+                                    **self.kwargs)
                 reducer.fit_transform(embeddings_sentence)
                 self.embedding = reducer.embedding_ 
             elif self.method == "tsne":
+                if self.kwargs is None:
+                    self.kwargs = {}
                 tsne = TSNE(n_components = self.components,
                             learning_rate = 'auto',
-                            random_state = random_state)
+                            random_state = random_state,
+                            **self.kwargs)
                 tsne.fit_transform(embeddings_sentence)
                 self.embedding = tsne.embedding_
             elif self.method == "ppapca":

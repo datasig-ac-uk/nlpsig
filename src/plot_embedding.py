@@ -3,7 +3,6 @@ import numpy as np
 
 from distinctipy import colorsets
 
-
 class plotEmbedding:
     def __init__(self, 
                  x_data: np.array,

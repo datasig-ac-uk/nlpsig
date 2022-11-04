@@ -1,4 +1,3 @@
-from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
 import umap
@@ -9,11 +8,9 @@ class DimensionalityReduction:
     def __init__(self,
                  method: str = "ppapca",
                  components: int = 5,
-                 standardise: bool = False,
                  dim_reduction_kwargs: Optional[dict] = None) -> None:
         self.method = method
         self.components = components
-        self.standardise = standardise
         self.kwargs = dim_reduction_kwargs
         self.embedding = None
 
@@ -25,8 +22,6 @@ class DimensionalityReduction:
                                "tsne",
                                "ppapca",
                                "ppapcappa"]
-        if self.standardise:
-            embeddings_sentence = StandardScaler().fit_transform(embeddings_sentence)
         if self.method in implemented_methods:
             if self.method == "pca":
                 if self.kwargs is None:

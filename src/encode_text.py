@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 from typing import Optional
 
-class textEncoder:
+class TextEncoder:
     def __init__(self,
                  df: pd.DataFrame,
                  pre_computed_embeddings_file: Optional[str] = None,

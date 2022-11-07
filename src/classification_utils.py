@@ -1,132 +1,91 @@
 import os
-from os import listdir
-from os.path import isfile, join
-from sklearn.model_selection import GroupShuffleSplit
+from sklearn.model_selection import GroupShuffleSplit, GroupKFold, train_test_split
 from sklearn import metrics
 import torch
 import numpy as np
 import pandas as pd
 import random
-import math
-import pickle
+import torch
+import torch.nn as nn
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data import TensorDataset
+from torch.optim.optimizer import Optimizer
+from typing import Tuple, Optional
 
 class Folds:
+    def __init__(self,
+                 df: pd.DataFrame,
+                 x_data: torch.Tensor,
+                 y_data: torch.Tensor,
+                 groups: torch.Tensor,
+                 n_splits: int = 5,
+                 shuffle: bool = False,
+                 random_state: int = 42):
+        if n_splits < 2:
+            raise ValueError("n_splits should be at least 2")
+        if x_data.shape[0] != y_data.shape[0]:
+            raise ValueError("x_data and y_data do not have compatible shapes " +
+                             "(need to have same number of samples)")
+        self.df = df
+        self.x_data = x_data
+        self.y_data = y_data
+        self.groups = groups
+        self.n_splits = n_splits
+        self.shuffle = shuffle
+        if self.shuffle:
+            # GroupShuffleSplit doesn't guarantee that every group is in a test group
+            self.random_state = random_state
+            self.fold = GroupShuffleSplit(n_splits = self.n_splits,
+                                          shuffle = self.shuffle,
+                                          random_state = self.random_state)
+        else:
+            # GroupKFold guarantees that every group is in a test group once
+            self.random_state = None
+            self.fold = GroupKFold(n_splits = self.n_splits)
+        self.fold_indices = list(self.fold.split(X = x_data, groups = groups))
 
-    def __init__(self, num_folds=5):
-        #Folders to read the data from
-        FOLDER_complete_dataset = '/storage/adtsakal/MoC_dataset' # directory of the dataset (datadrive or storage)
-        TYPE_of_labelling = 'three_labels' # or "five_labels"
-        TYPE_of_agreement = 'majority' # or "intersection" (i.e., requiring majority or perfect agreement)
-        FOLDER_dataset = FOLDER_complete_dataset+'/'+TYPE_of_labelling+'/'+TYPE_of_agreement+'/'
-
-        self.NUM_folds = num_folds
-        self.FOLDER_dataset = FOLDER_dataset
-        self.FOLD_to_TIMELINE = [] # list with NUM_folds sublists, each containing the paths to the corresponding fold's timelines
+    def get_splits(self,
+                   fold_index: int,
+                   dev_size: float = 0.33,
+                   as_DataLoader = False,
+                   data_loader_args: dict = {"batch_size": 1, 
+                                             "shuffle": True}):
+        if fold_index not in list(range(self.n_splits)):
+            raise ValueError(f"There are {self.n_splits} folds, so " + 
+                             f"fold_index must be in {list(range(self.n_splits))}")
+        # obtain train and test indices for provided fold_index
+        train_index = self.fold_indices[fold_index][0]
+        test_index = self.fold_indices[fold_index][1]
+        # obtain a validation set from the training set
+        train_index, valid_index = train_test_split(train_index,
+                                                    test_size = dev_size,
+                                                    shuffle = self.shuffle,
+                                                    random_state = self.random_state)
         
-        for _fld in range(self.NUM_folds):
-            _tmp_fldr = self.FOLDER_dataset+str(_fld)+'/'
-            self.FOLD_to_TIMELINE.append([_tmp_fldr+f for f in listdir(_tmp_fldr) if isfile(join(_tmp_fldr, f))])
-
-
-    def get_timelines_for_fold(self, fold):
-        '''
-        Returns lists of different fields of all timelines IN the specified fold.
-        Input:
-            - fold (int): the fold we want to retrieve the timelines from
-        Output (lists of posts):
-            - timeline_ids: one tl_id per post
-            - post_ids: the post_ids
-            - texts: the text of each post
-            - labels: the label of each post (5 possible labels)
-        '''
-        timelines_tsv = self.FOLD_to_TIMELINE[fold]
-        timeline_ids, post_ids, texts, labels = [], [], [], []
-        for tsv in timelines_tsv:
-            df = pd.read_csv(tsv, sep='\t')
-            if '374448_217' in tsv: #manually found (post 5723227 was not incorporated for some reason)
-                df = pd.read_csv(tsv, sep='\t', quotechar='\'')
-            pstid, txt, lbl = df.postid.values, df.content.values, df.label.values
-            for i in range(len(pstid)):
-                timeline_ids.append(tsv.split('/')[-1][:-4])
-                post_ids.append(pstid[i])
-                texts.append(str(txt[i]))
-                labels.append(lbl[i])
-        return timeline_ids, post_ids, texts, np.array(labels)
-
-
-    def get_timelines_except_for_fold(self, fold):
-        '''
-        Returns lists of different fields of all timelines EXCEPT FOR the specified fold.
-        Input:
-            - fold (int): the fold we want to avoid retrieving the timelines from
-        Output (lists of posts):
-            - timeline_ids: one tl_id per post
-            - post_ids: the post_ids
-            - texts: the text of each post
-            - labels: the label of each post (5 possible labels)
-        '''
-        timeline_ids, post_ids, texts, labels = [], [], [], []
-        for f in range(len(self.FOLD_to_TIMELINE)):
-            if f!=fold:
-                tlids, pstid, txt, lbl = self.get_timelines_for_fold(f)
-                for i in range(len(pstid)):
-                    timeline_ids.append(tlids[i])
-                    post_ids.append(pstid[i])
-                    texts.append(str(txt[i]))
-                    labels.append(lbl[i])
-        return timeline_ids, post_ids, texts, np.array(labels)
-    
-    def get_labels(self, df):
-
-        #dictionary of labels - 3-class classification
-        y_dict3 = {}
-        y_dict3['0'] = 0
-        y_dict3['IE'] = 1
-        y_dict3['IEP'] = 1
-        y_dict3['IS'] = 2
-        y_dict3['ISB'] = 2
-
-        #GET THE FLAT y LABELS
-        y_data = df['label'].values
-        y_data = np.array([y_dict3[xi] for xi in y_data])
-        y_data = torch.from_numpy(y_data.astype(int))
+        x_train = self.x_data[train_index]
+        y_train = self.y_data[train_index]
+        x_valid = self.x_data[valid_index]
+        y_valid = self.y_data[valid_index]
+        x_test = self.x_data[test_index]
+        y_test = self.y_data[test_index]
         
-        return y_data
+        if as_DataLoader:
+            train = TensorDataset(x_train, y_train)
+            valid = TensorDataset(x_valid, y_valid)
+            test = TensorDataset(x_test, y_test)
 
+            train_loader = DataLoader(dataset=train, **data_loader_args)
+            valid_loader = DataLoader(dataset=valid, **data_loader_args)
+            test_loader = DataLoader(dataset=test, **data_loader_args)
+            
+            return train_loader, valid_loader, test_loader
+        else:
+            return x_test, y_test, x_valid, y_valid, x_train, y_train
 
-    def get_splits(self, df, x_data, y_data, test_fold, dev_size = 0.33):
-
-        # Just getting the train/test data: timelines_ids, posts_id, texts, labels
-        test_tl_ids, test_pids, test_texts, test_labels = self.get_timelines_for_fold(test_fold)
-        train_tl_ids, train_pids, train_texts, train_labels = self.get_timelines_except_for_fold(test_fold)
-
-        timeline_test = np.unique(test_tl_ids)
-        timeline_notest = np.unique(train_tl_ids)
-
-        df_train = df[df.timeline_id.isin(timeline_notest)].reset_index(drop=True)
-        splitter_tr = GroupShuffleSplit(test_size=dev_size, random_state = 123)
-        split_tr = splitter_tr.split(df_train, groups=df_train['timeline_id'])
-        train2_inds, valid_inds = next(split_tr)
-
-        timeline_valid = df_train[df_train.index.isin(valid_inds)]['timeline_id'].unique()
-        timeline_train = df_train[df_train.index.isin(train2_inds)]['timeline_id'].unique()
-
-        x_test = x_data[(df.timeline_id.isin(timeline_test)) , :]
-        y_test = y_data[df.timeline_id.isin(timeline_test)]
-        x_valid = x_data[df.timeline_id.isin(timeline_valid), :]
-        y_valid = y_data[df.timeline_id.isin(timeline_valid)]
-        x_train = x_data[df.timeline_id.isin(timeline_train), :]
-        y_train = y_data[df.timeline_id.isin(timeline_train)]
-        print('The size of train/valid/test timelines are: ', timeline_train.shape[0], timeline_valid.shape[0], timeline_test.shape[0])
-        print('Samples in test set: ', x_test.shape[0])
-
-        return x_test, y_test, x_valid, y_valid, x_train , y_train, test_tl_ids, test_pids
-
-
-def set_seed(seed):
+def set_seed(seed: int) -> None:
     """
-    Helper function for reproducible behavior to set the seed in ``random``, ``numpy``, ``torch`` and/or ``tf`` (if
-    installed).
+    Helper function for reproducible behavior to set the seed in 
+    ``random``, ``numpy``, ``torch`` (if installed).
     Args:
         seed (:obj:`int`): The seed to set.
     """
@@ -135,123 +94,177 @@ def set_seed(seed):
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
 
-def validation(model, valid_loader, criterion):
-
+def validation(model: nn.Module,
+               valid_loader: DataLoader,
+               criterion: nn.Module,
+               epoch: int,
+               verbose: bool = False) -> Tuple[float, float]:
+    """
+    Evaluates the PyTorch model to a validation set and returns
+    the total loss, accuracy and F1 score
+    """
+    # sets the model to evaluation mode
     model.eval()
-    loss_total = 0
+    number_of_labels = 0
+    total_loss = 0
+    labels = torch.empty((0))
+    predicted = torch.empty((0))
+    with torch.no_grad():     
+        for emb_v, labels_v in valid_loader:
+            # make prediction
+            outputs = model(emb_v)
+            _, predicted_v = torch.max(outputs.data, 1)
+            number_of_labels += labels_v.size(0)
+            # compute loss
+            loss_v = criterion(outputs, labels_v)
+            total_loss += loss_v.item()
+            # save predictions and labels
+            labels = torch.cat([labels, labels_v])
+            predicted = torch.cat([predicted, predicted_v])
+        # compute accuracy and f1 score 
+        accuracy = ((predicted == labels).sum() / number_of_labels).item()
+        f1_v = metrics.f1_score(labels,
+                                predicted,
+                                average = 'macro')
+        if verbose:
+            print(f"Epoch: {epoch} || " +
+                  f"Loss: {total_loss / len(valid_loader)} || " +
+                  f"Accuracy: {accuracy} || " +
+                  f"F1-score: {f1_v}.")
+        
+        return total_loss / len(valid_loader), accuracy, f1_v
 
-     # Calculate Metrics         
-    correct = 0
-    total = 0
+def training(model: nn.Module,
+             train_loader: DataLoader,
+             valid_loader: DataLoader,
+             criterion: nn.Module,
+             optimizer: Optimizer,
+             num_epochs: int,
+             seed: Optional[int] = 42,
+             patience: Optional[int] = 3, 
+             verbose: bool = False,
+             verbose_epoch: int = 100,
+             verbose_item: int = 1000) -> nn.Module:
+    """
+    Trains the PyTorch model using some training dataset and uses a validation dataset
+    to determine if early stopping is used
+    """
+    # sets the model to training mode
+    model.train()
+    set_seed(seed)
+    # early stopping parameters
+    last_metric = 0
+    trigger_times = 0
+    # model train & validation per epoch
+    for epoch in range(num_epochs):
+        for i, (emb, labels) in enumerate(train_loader):
+            # perform training by performing forward and backward passes
+            optimizer.zero_grad()
+            outputs = model(emb)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+            # show training progress
+            if verbose:
+                if (i % verbose_item == 0):
+                    print(f"Epoch: {epoch+1}/{num_epochs} || " +
+                          f"Item: {i}/{len(train_loader)} || " +
+                          f"Loss: {loss.item()}")
+        # show training progress
+        if verbose:
+            if (epoch % verbose_epoch == 0):
+                print("-"*50)
+                print(f"##### Epoch: {epoch+1}/{num_epochs} || " +
+                      f"Loss: {loss.item()}")
+                print("-"*50)
+        # determine whether or not to stop early using validation set
+        _, __, f1_v = validation(model = model,
+                                 valid_loader = valid_loader,
+                                 criterion = criterion,
+                                 epoch = epoch,
+                                 verbose = verbose)
+        if f1_v < last_metric:
+            trigger_times += 1
+            if trigger_times >= patience:
+                print(f"Early stopping at epoch {epoch+1}!")
+                break
+        else:
+            trigger_times = 0
+        last_metric = f1_v
+        
+    return model
+
+def testing(model: nn.Module,
+            test_loader: DataLoader) -> Tuple[torch.tensor, torch.tensor]:
+    """
+    Evaluates the PyTorch model to a validation set and returns the
+    predicted labels and their corresponding true labels
+    """
+    # sets the model to evaluation mode
+    model.eval()
     labels_all = torch.empty((0))
     predicted_all = torch.empty((0))
-
-    # Validation data
-    with torch.no_grad():     
-      # Iterate through validation dataset
-        for emb_v, labels_v in valid_loader:
-
-            # Forward pass only to get logits/output
-            outputs = model(emb_v)
-
-            # Get predictions from the maximum value
-            _, predicted_v = torch.max(outputs.data, 1)
-            loss_v = criterion(outputs, labels_v)
-
-            loss_total += loss_v.item()
-
-            # Total number of labels
-            total += labels_v.size(0)
-
-            # Total correct predictions
-            correct += (predicted_v == labels_v).sum()
-            labels_all = torch.cat([labels_all, labels_v])
-            predicted_all = torch.cat([predicted_all, predicted_v])
-
-        accuracy = 100 * correct / total
-        f1_v = 100 * metrics.f1_score(labels_all, predicted_all, average = 'macro')
-
-        # Print Loss
-        #print('Iteration: {}. Loss: {}. Accuracy: {}. Macro-Precision: {}'.format(iter, loss.item(), accuracy, precision))
-        return loss_total / len(valid_loader), f1_v
-
-def training(model, train_loader, criterion, optimizer, epoch, num_epochs):
-    model.train()
-    
-    for i, (emb, labels) in enumerate(train_loader):
-        
-        # Clear gradients w.r.t. parameters
-        optimizer.zero_grad()
-
-        # Forward pass to get output/logits
-        outputs = model(emb)
-
-        # Calculate Loss: softmax --> cross entropy loss
-        loss = criterion(outputs, labels)
-
-        # Getting gradients w.r.t. parameters
-        loss.backward()
-
-        # Updating parameters
-        optimizer.step()
-
-        # Show training progress
-        if (i % 100 == 0):
-            print('[{}/{}, {}/{}] loss: {:.8}'.format(epoch, num_epochs, i, len(train_loader), loss.item()))
-
-
-def testing(model, test_loader):
-      model.eval()
-
-      labels_all = torch.empty((0))
-      predicted_all = torch.empty((0))
-
-      #Test data
-      with torch.no_grad():     
-            # Iterate through test dataset
-            for emb_t, labels_t in test_loader:
-
-                  # Forward pass only to get logits/output
-                  outputs_t = model(emb_t)
-
-                  # Get predictions from the maximum value
-                  _, predicted_t = torch.max(outputs_t.data, 1)
-
-                  # Total correct predictions
-                  labels_all = torch.cat([labels_all, labels_t])
-                  predicted_all = torch.cat([predicted_all, predicted_t])
+    with torch.no_grad():   
+        # Iterate through test dataset
+        for emb_t, labels_t in test_loader:
+            # make prediction
+            outputs_t = model(emb_t)
+            _, predicted_t = torch.max(outputs_t.data, 1)
+            # save predictions and labels
+            labels_all = torch.cat([labels_all, labels_t])
+            predicted_all = torch.cat([predicted_all, predicted_t])
       
-      return predicted_all, labels_all
+    return predicted_all, labels_all
 
-
-def process_model_results(model_code_name, FOLDER_results):
-    per_model_files = [f for f in listdir(FOLDER_results) if model_code_name in f]
-    print('There are ', len(per_model_files), ' files')
-    metrics_overall = pd.DataFrame(0, index = ['O', 'IE', 'IS', 'accuracy', 'macro avg', 'weighted avg'], columns = ['precision', 'recall', 'f1-score', 'support'])
-    with open(FOLDER_results+per_model_files[0], 'rb') as fin:
-        results0 = pickle.load(fin)
-
-
-    for my_ran_seed in results0['classifier_params']['RANDOM_SEED_list']:
-        labels_final = torch.empty((0))
-        predicted_final = torch.empty((0))
-
-        seed_files = [f for f in per_model_files if (str(my_ran_seed)+'seed') in f]
-        for sf in seed_files :
-            with open(FOLDER_results+sf, 'rb') as fin:
-                results = pickle.load(fin)
-                labels_results = results['labels']
-                predictions_results = results['predictions']
+def KFold_pytorch(folds: Folds,
+                  model: nn.Module,
+                  criterion: nn.Module,
+                  optimizer: Optimizer,
+                  num_epochs: int,
+                  seed: Optional[int] = 42,
+                  patience: Optional[int] = 3,
+                  verbose_args: dict = {
+                      "verbose": True,
+                      "verbose_epoch": 100,
+                      "verbose_item": 10000,
+                  }) -> pd.DataFrame:
+    torch.save(obj = {"model_state_dict": model.state_dict(),
+                      "optimizer_state_dict": optimizer.state_dict(),
+                      "criterion": criterion},
+               f = "starting_state.pkl")
+    accuracy = []
+    f1_score = []
+    for fold in range(folds.n_splits):
+        print("-"*50)
+        print(f"Fold: {fold+1} / {folds.n_splits}")
+        print("-"*50)
+        train, valid, test = folds.get_splits(fold_index = fold,
+                                              as_DataLoader = True)
+        # reload starting state of the model, optimizer and loss
+        checkpoint = torch.load(f = "starting_state.pkl")
+        model.load_state_dict(checkpoint["model_state_dict"])
+        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        criterion = checkpoint["criterion"]
+        # train pytorch model
+        model = training(model = model,
+                         train_loader = train,
+                         valid_loader = valid,
+                         criterion = criterion,
+                         optimizer = optimizer,
+                         num_epochs = num_epochs,
+                         seed = seed,
+                         patience = patience,
+                         **verbose_args)
+        # test model
+        predicted, labels = testing(model = model,
+                                    test_loader = test)
+        # evaluate model
+        accuracy.append(((predicted == labels).sum() / labels.size(0)).item())
+        f1_score.append(metrics.f1_score(labels,
+                                         predicted,
+                                         average = 'macro'))
+    # remove starting state pickle file
+    os.remove("starting_state.pkl")
+    return pd.DataFrame({"accuracy": accuracy,
+                         "f1_score": f1_score})
         
-            #for each seed combine fold results
-            labels_final = torch.cat([labels_final, labels_results])
-            predicted_final = torch.cat([predicted_final, predictions_results])
-
-        #calculate metrics for each seed
-        metrics_tab = metrics.classification_report(labels_final, predicted_final, target_names = ['O','IE','IS'], output_dict=True)
-        metrics_tab = pd.DataFrame(metrics_tab).transpose()
-        #combine the metrics with the rest of the seeds in order to take average at the end
-        metrics_overall += metrics_tab
-
-    return metrics_overall /len(results0['classifier_params']['RANDOM_SEED_list'])
-

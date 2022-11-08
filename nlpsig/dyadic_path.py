@@ -1,32 +1,41 @@
 import signatory
-import math
 import torch 
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from typing import Optional, Tuple 
-import re
 import numpy as np 
-import pandas as pd
 
 class DyadicSignatures:
-    def __init__(self, original_size, d, sig_d=3, intervals = 1/12, k_history=None, embedding_tp = 'sentence', method = 'attention', history_tp = 'sig', add_time = False):
-
+    def __init__(self,
+                 original_size: int,
+                 dim: int,
+                 sig_dim: int = 3,
+                 intervals: int = 1/12,
+                 k_history: Optional[int] = None,
+                 embedding_tp: str = 'sentence',
+                 method: str = 'attention',
+                 history_tp: str = 'sig',
+                 add_time: bool = False):
+        """
+        
+        """
         self.dyadic_path_min = 2012
         self.dyadic_path_max = 2021
         self.intervals = intervals
-        self.sig_d = sig_d
-        self.d = d
+        self.sig_dim = sig_dim
+        self.dim = dim
         self.original_size = original_size
         self.embedding_tp = embedding_tp
         self.method = method
-        self.channels = signatory.signature_channels(self.d, self.sig_d)
+        self.channels = signatory.signature_channels(self.dim, self.sig_dim)
         self.history_tp = history_tp
         self.add_time = add_time
         self.k_history = k_history
-
-        #initially let's break dyadic intervals into 1 month each
-        self.dyadic_path_dt = np.arange(self.dyadic_path_min, self.dyadic_path_max + 2*self.intervals, self.intervals).tolist()
+        # initially let's break dyadic intervals into 1 month each
+        self.dyadic_path_dt = np.arange(self.dyadic_path_min,
+                                        self.dyadic_path_max + 2*self.intervals,
+                                        self.intervals).tolist()
 
     #per sample dyadic signature function
     def _compute_signature(self, timeline):        
@@ -36,7 +45,7 @@ class DyadicSignatures:
         ind = 0
 
         #overall empty array to save results of dimensions: #samples x #intervals x #final dimensions
-        #int( (self.d ** (self.sig_d+1) - self.d) * (self.d - 1) ** (-1) )#overall array of signatures
+        #int( (self.dim ** (self.sig_d+1) - self.dim) * (self.dim - 1) ** (-1) )#overall array of signatures
         dyadic_signatures = torch.empty( (len(self.dyadic_path_dt)-3, int( self.channels )) ) #overall array of signatures
         dyadic_signatures[:] = 0 
 
@@ -46,7 +55,6 @@ class DyadicSignatures:
         #array that saves the last index for each interval that falls in the dyadic path
         last_index_dt = torch.zeros( (1, len(self.dyadic_path_dt)-3) )
 
-
         #save the index of the last point in the previous interval
         ind_start = 0
         ind_end = 0
@@ -55,7 +63,7 @@ class DyadicSignatures:
         low_range = self.dyadic_path_dt[0]
 
         #efficient precomputations
-        path_class = signatory.Path(timeline.reshape(1,timeline.shape[0], timeline.shape[1]), self.sig_d)
+        path_class = signatory.Path(timeline.reshape(1, timeline.shape[0], timeline.shape[1]), self.sig_dim)
 
         #count the data points of timeline
         num_points = torch.count_nonzero(timeline[:,0]).item()
@@ -145,7 +153,7 @@ class DyadicSignatures:
         for i in range(1,sig_cum.shape[1]):
 
             if (sig[:,i,:].sum().item() != 0):
-                sig_cum[:,i,:] = signatory.signature_combine(sig_cum[:,i-1,:], sig[:,i,:], self.d, self.sig_d)
+                sig_cum[:,i,:] = signatory.signature_combine(sig_cum[:,i-1,:], sig[:,i,:], self.dim, self.sig_dim)
             else:
                 sig_cum[:,i,:] = sig_cum[:,i-1,:]
     
@@ -182,7 +190,7 @@ class DyadicSignatures:
                     sig_res = path_class.signature(dyadic_ind, ind).to(torch.float)
 
                     #combine
-                    history = signatory.signature_combine(sig_intervals, sig_res, self.d, self.sig_d)
+                    history = signatory.signature_combine(sig_intervals, sig_res, self.dim, self.sig_dim)
                     
             elif (ind <= 1):
                 history = torch.zeros((1, self.channels))
@@ -202,7 +210,7 @@ class DyadicSignatures:
 
         #logsignature case calculation
         if (self.history_tp == 'log'):
-            history = signatory.signature_to_logsignature(history, self.d, self.sig_d)
+            history = signatory.signature_to_logsignature(history, self.dim, self.sig_dim)
             
         #TYPE OF POST EMBEDDING
         if (self.embedding_tp == 'sentence'):
@@ -247,7 +255,7 @@ class DyadicSignatures:
             emb_dim = path.shape[2]
         
         if (self.history_tp == 'log'):
-            channel_dim = signatory.logsignature_channels(self.d, self.sig_d)
+            channel_dim = signatory.logsignature_channels(self.dim, self.sig_dim)
         else:
             channel_dim = self.channels
 
@@ -267,7 +275,7 @@ class DyadicSignatures:
             timeline = path[sample,:,:]
 
             #for specific sample - precomputation
-            path_class = signatory.Path(timeline.reshape(1,timeline.shape[0], timeline.shape[1]), self.sig_d)
+            path_class = signatory.Path(timeline.reshape(1,timeline.shape[0], timeline.shape[1]), self.sig_dim)
 
             for ind in range(timeline.shape[0]):
                 if (timeline[ind, 0].item() != 0):

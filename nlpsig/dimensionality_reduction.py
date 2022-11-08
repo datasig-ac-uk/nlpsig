@@ -4,7 +4,7 @@ import umap
 import numpy as np
 from typing import Optional
 
-class DimensionalityReduction:
+class DimReduce:
     def __init__(self,
                  method: str = "ppapca",
                  components: int = 5,
@@ -64,7 +64,6 @@ class DimensionalityReduction:
                                       f"Try one of the following: " + 
                                       f"{', '.join(implemented_methods)}.")
         return self.embedding
-
 
     def ppa_pca(self,
                 embeddings_sentence: np.array,

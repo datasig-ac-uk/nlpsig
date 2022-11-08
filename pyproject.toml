@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "nlpsig"
+version = "0.1.0"
+description = "Extract features from textual data using BERT and Path signatures"
+authors = [
+    "Ryan Chan <rchan@turing.ac.uk>",
+    "Talia Tseriotou <t.tseriotou@qmul.ac.uk>",
+    "Kasra Hosseini <khosseini@turing.ac.uk>"
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8, <3.9"
+torch = "1.9.0"
+signatory = "1.2.6.1.9.0"
+sentence-transformers = "^2.2.2"
+matplotlib = "^3.6.2"
+tdqm = "^0.0.1"
+pandas = "^1.5.1"
+numpy = "^1.23.4"
+umap-learn = "^0.5.3"
+scikit-learn = "^1.1.3"
+datasets = "^2.6.1"
+distinctipy = "^1.2.2"
+notebook = "^6.5.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+black = "^22.1.0"
+isort = "^5.8.0"
+pylint = "^2.7.4"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

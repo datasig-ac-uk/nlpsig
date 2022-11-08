@@ -14,34 +14,47 @@
 
 We recommend installation via Anaconda (refer to [Anaconda website and follow the instructions](https://docs.anaconda.com/anaconda/install/)).
 
-* Create a new environment:
+* Linux and macOS
 
 ```bash
-conda create -n py38esig python=3.8
+git clone git@github.com:ttseriotou/path_signatures_bert.git
+cd path_signatures_bert
+conda env create
+conda activate nlpsig
+pip install .
 ```
 
-* Activate the environment:
+* Windows
+
+We recommend first installing the [Windows Subsystem for Linux](https://docs.microsoft.com/en-us/windows/wsl/install) (WSL). You can then use the following to install Conda (following the Linux instructions [here](https://docs.conda.io/en/latest/miniconda.html#linux-installers)):
 
 ```bash
-conda activate py38esig 
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
 ```
 
-* Install dependencies:
+You can then follow the installation instructions for Linux and macOS above.
+
+* For using within Jupyter, you can create a kernel with:
 
 ```bash
-pip install torch==1.9.0 signatory==1.2.6.1.9.0
-pip install sentence-transformers
-pip install matplotlib
-pip install datasets
-pip install tqdm
-pip install pandas
-pip install numpy
-pip install umap-learn
-pip install notebook
-pip install distinctipy
-pip install scikit-learn
+python -m ipykernel install --user --name nlpsig --display-name "Python (nlpsig)"
 ```
 
-```bash
-python -m ipykernel install --user --name py38esig --display-name "Python (py38esig)"
+### Use `nlpsig` without conda
+
+To use `nlpsig` without conda:
+
+```shell
+git clone git@github.com:ttseriotou/path_signatures_bert.git
+cd path_signatures_bert
+pip install .
+```
+
+## Development
+
+If you're developing `nlpsig` you may find it helpful to install it in editable mode:
+
+```shell
+pip install -e .
 ```

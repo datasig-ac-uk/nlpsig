@@ -10,10 +10,11 @@ from torch.optim.optimizer import Optimizer
 from typing import Tuple, Optional
 
 def validation_pytorch(model: nn.Module,
-               valid_loader: DataLoader,
-               criterion: nn.Module,
-               epoch: int,
-               verbose: bool = False) -> Tuple[float, float]:
+                       valid_loader: DataLoader,
+                       criterion: nn.Module,
+                       epoch: int,
+                       verbose: bool = False,
+                       verbose_epoch: int = 100) -> Tuple[float, float]:
     """
     Evaluates the PyTorch model to a validation set and returns
     the total loss, accuracy and F1 score
@@ -42,24 +43,25 @@ def validation_pytorch(model: nn.Module,
                                 predicted,
                                 average = 'macro')
         if verbose:
-            print(f"Epoch: {epoch} || " +
-                  f"Loss: {total_loss / len(valid_loader)} || " +
-                  f"Accuracy: {accuracy} || " +
-                  f"F1-score: {f1_v}.")
+            if (epoch % verbose_epoch == 0):
+                print(f"Epoch: {epoch+1} || " +
+                    f"Loss: {total_loss / len(valid_loader)} || " +
+                    f"Accuracy: {accuracy} || " +
+                    f"F1-score: {f1_v}.")
         
         return total_loss / len(valid_loader), accuracy, f1_v
 
 def training_pytorch(model: nn.Module,
-             train_loader: DataLoader,
-             valid_loader: DataLoader,
-             criterion: nn.Module,
-             optimizer: Optimizer,
-             num_epochs: int,
-             seed: Optional[int] = 42,
-             patience: Optional[int] = 3, 
-             verbose: bool = False,
-             verbose_epoch: int = 100,
-             verbose_item: int = 1000) -> nn.Module:
+                     train_loader: DataLoader,
+                     valid_loader: DataLoader,
+                     criterion: nn.Module,
+                     optimizer: Optimizer,
+                     num_epochs: int,
+                     seed: Optional[int] = 42,
+                     patience: Optional[int] = 3, 
+                     verbose: bool = False,
+                     verbose_epoch: int = 100,
+                     verbose_item: int = 1000) -> nn.Module:
     """
     Trains the PyTorch model using some training dataset and uses a validation dataset
     to determine if early stopping is used
@@ -81,7 +83,7 @@ def training_pytorch(model: nn.Module,
             optimizer.step()
             # show training progress
             if verbose:
-                if (i % verbose_item == 0):
+                if (epoch % verbose_epoch == 0) and (i % verbose_item == 0):
                     print(f"Epoch: {epoch+1}/{num_epochs} || " +
                           f"Item: {i}/{len(train_loader)} || " +
                           f"Loss: {loss.item()}")
@@ -94,10 +96,11 @@ def training_pytorch(model: nn.Module,
                 print("-"*50)
         # determine whether or not to stop early using validation set
         _, __, f1_v = validation_pytorch(model = model,
-                                 valid_loader = valid_loader,
-                                 criterion = criterion,
-                                 epoch = epoch,
-                                 verbose = verbose)
+                                         valid_loader = valid_loader,
+                                         criterion = criterion,
+                                         epoch = epoch,
+                                         verbose = verbose,
+                                         verbose_epoch = verbose_epoch)
         if f1_v < last_metric:
             trigger_times += 1
             if trigger_times >= patience:
@@ -110,7 +113,7 @@ def training_pytorch(model: nn.Module,
     return model
 
 def testing_pytorch(model: nn.Module,
-            test_loader: DataLoader) -> Tuple[torch.tensor, torch.tensor]:
+                    test_loader: DataLoader) -> Tuple[torch.tensor, torch.tensor]:
     """
     Evaluates the PyTorch model to a validation set and returns the
     predicted labels and their corresponding true labels
@@ -150,9 +153,9 @@ def KFold_pytorch(folds: GroupFolds,
     accuracy = []
     f1_score = []
     for fold in range(folds.n_splits):
-        print("-"*50)
+        print("\n" + "*"*50)
         print(f"Fold: {fold+1} / {folds.n_splits}")
-        print("-"*50)
+        print("*"*50)
         train, valid, test = folds.get_splits(fold_index = fold,
                                               as_DataLoader = True)
         # reload starting state of the model, optimizer and loss

@@ -16,7 +16,7 @@ class DimReduce:
 
     def fit_transform(self,
                       embeddings_sentence: np.array,
-                      random_state: int = 42) -> None:
+                      random_state: int = 42) -> np.array:
         implemented_methods = ["pca",
                                "umap",
                                "tsne",

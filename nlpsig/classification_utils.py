@@ -31,7 +31,6 @@ class GroupFolds:
             # GroupShuffleSplit doesn't guarantee that every group is in a test group
             self.random_state = random_state
             self.fold = GroupShuffleSplit(n_splits = self.n_splits,
-                                          shuffle = self.shuffle,
                                           random_state = self.random_state)
         else:
             # GroupKFold guarantees that every group is in a test group once

@@ -1,19 +1,20 @@
 import numpy as np
 import pandas as pd
 import re
-from typing import List
+from typing import List, Optional
 
 class PrepareData:
     def __init__(self,
                  dataset_df: pd.DataFrame,
                  embeddings_sentence: np.array,
-                 embeddings_reduced: np.array = np.array([])):
+                 embeddings_reduced: Optional[np.array] = None):
         if dataset_df.shape[0] != embeddings_sentence.shape[0]:
             raise ValueError("dataset_df, embeddings_sentence and embeddings_reduced " +
                              "should have the same number of rows")
-        elif dataset_df.shape[0] != embeddings_reduced.shape[0]:
-            raise ValueError("dataset_df, embeddings_sentence and embeddings_reduced " +
-                             "should have the same number of rows")
+        if embeddings_reduced is not None:    
+            if dataset_df.shape[0] != embeddings_reduced.shape[0]:
+                raise ValueError("dataset_df, embeddings_sentence and embeddings_reduced " +
+                                "should have the same number of rows")
         self.dataset_df = dataset_df
         self.embeddings_sentence = embeddings_sentence
         self.embeddings_reduced = embeddings_reduced
@@ -30,18 +31,18 @@ class PrepareData:
             return self.df
         else:
             embedding_sentence_df = pd.DataFrame(self.embeddings_sentence,
-                                                columns = [
-                                                    f"e{i+1}"
-                                                    for i in range(self.embeddings_sentence.shape[1])
-                                                    ]
-                                                )
-            if (len(self.embeddings_reduced)!=0):
+                                                 columns = [
+                                                     f"e{i+1}"
+                                                     for i in range(self.embeddings_sentence.shape[1])
+                                                     ]
+                                                 )
+            if self.embeddings_reduced is not None:
                 embeddings_reduced_df = pd.DataFrame(self.embeddings_reduced,
-                                                    columns = [
-                                                        f"d{i+1}"
-                                                        for i in range(self.embeddings_reduced.shape[1])
-                                                        ]
-                                                    )
+                                                     columns = [
+                                                         f"d{i+1}"
+                                                         for i in range(self.embeddings_reduced.shape[1])
+                                                         ]
+                                                     )
                 df = pd.concat([self.dataset_df.reset_index(drop=True),
                                 embeddings_reduced_df,
                                 embedding_sentence_df],

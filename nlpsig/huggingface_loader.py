@@ -61,7 +61,7 @@ class loadHF:
         dataset_df["publish_date"] = [choice(list_datetimes) for x in range(len(dataset_df))]
         # timeline and post IDs
         dataset_df["timeline_id"] = dataset_df["publish_date"].apply(lambda x: list_datetimes.index(x))
-        dataset_df["postid"] = [randrange(10) for x in range(len(dataset_df))]
+        dataset_df["post_id"] = [randrange(10) for x in range(len(dataset_df))]
         # Convert publish_date to datetime
         dataset_df['publish_date'] =  pd.to_datetime(dataset_df['publish_date'], format='%Y-%m-%d %H:%M:%S')
         # Rename the columns
@@ -70,7 +70,7 @@ class loadHF:
             "publish_date": "datetime",
             "topic": "label",
             "timeline_id": "timeline_id",
-            "postid": "postid"
+            "post_id": "post_id"
         }
         dataset_df = dataset_df.rename(columns=rename_cols)
         # Encode labels

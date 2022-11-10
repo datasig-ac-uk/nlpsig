@@ -1,13 +1,15 @@
 import numpy as np
 import pandas as pd
+import torch
 import re
-from typing import List, Optional
+from typing import List, Optional, Union
 
 class PrepareData:
     def __init__(self,
                  dataset_df: pd.DataFrame,
                  embeddings_sentence: np.array,
                  embeddings_reduced: Optional[np.array] = None):
+        # perform checks that dataset_df have the right column names to work with
         if dataset_df.shape[0] != embeddings_sentence.shape[0]:
             raise ValueError("dataset_df, embeddings_sentence and embeddings_reduced " +
                              "should have the same number of rows")
@@ -19,11 +21,13 @@ class PrepareData:
         self.embeddings_sentence = embeddings_sentence
         self.embeddings_reduced = embeddings_reduced
         self.df = None
-        self.df = self.get_modeling_dataframe()
+        self.df = self._get_modeling_dataframe()
+        self._time_feature_choices = ["time_encoding", "time_diff"]
+        self.time_features_added = False
         self.df_padded = None
         self.array_padded = None
     
-    def get_modeling_dataframe(self) -> pd.DataFrame:
+    def _get_modeling_dataframe(self) -> pd.DataFrame:
         """
         Combine original dataset_df with embeddings and the embeddings after dimension reduction
         """
@@ -56,7 +60,7 @@ class PrepareData:
     @staticmethod
     def _time_fraction(x: pd.Timestamp) -> float:
         """
-        Computes
+        Converts the date, x, as a fraction of the year
         """
         # compute how many seconds the date is into the year
         x_year_start = pd.Timestamp(x.year, 1, 1)
@@ -72,6 +76,10 @@ class PrepareData:
         - time_diff: the difference in time (in minutes) between successive records
         - timeline_index: the index of each post for each timeline
         """
+        if self.time_features_added:
+            print("Time features have already been added")
+            return
+        print("[INFO] Adding time feature columns into dataframe in .df")
         # obtain time encoding by computing the fraction of year it is in
         self.df['time_encoding'] = self.df['datetime'].map(lambda t: self._time_fraction(t))
         # sort by the timeline id and the date
@@ -93,12 +101,14 @@ class PrepareData:
             # assign indices for each post in this timeline-id
             self.df['timeline_index'][first_index:last_index] = list(range(t_id_len))
             first_index = last_index
+        self.time_features_added = True
         
     def _pad_timeline(self,
                       time_n,
                       colnames: List[str],
                       id_counts: pd.Series,
-                      id: int) -> pd.DataFrame:
+                      id: int,
+                      time_feature: List[str]) -> pd.DataFrame:
         """
         For a given timeline-id, id, the function slices the dataframe in .df
         by finding those with timeline_id == id and keeping only the columns
@@ -109,18 +119,20 @@ class PrepareData:
         """
         padding_n = time_n - id_counts[id]
         if (padding_n > 0):
-            data_dict = {**{'timeline_id': [id], 'label': [-1], 'time_encoding': [0]},
+            data_dict = {**{'timeline_id': [id], 'label': [-1]},
+                         **dict.fromkeys(time_feature, [0]),
                          **{c:[0] for c in colnames}}
             df_padded = pd.concat([self.df[self.df["timeline_id"]==id][data_dict.keys()],
                                    pd.concat([pd.DataFrame(data_dict)]*padding_n)])
             return df_padded.reset_index(drop=True)
         elif padding_n == 0:
-            colnames = ['timeline_id', 'label', 'time_encoding'] + colnames
+            colnames = ['timeline_id', 'label'] + time_feature + colnames
             return self.df[self.df["timeline_id"]==id][colnames]
         else:
             raise ValueError("time_n should be larger than id_counts[id]")
 
     def pad_timelines(self,
+                      time_feature: Union[List[str], str],
                       keep_embedding_sentences: bool = False) -> np.array:
         """
         Creates an array which stores each of the timelines.
@@ -132,6 +144,21 @@ class PrepareData:
         The method returns an 3 dimensional array storing each timeline and the embeddings,
         and this is stored in .array_padded
         """
+        print("[INFO] Padding timelines and storing in .df_padded and .array_padded attributes")
+        if time_feature is None:
+            time_feature = []
+        else:
+            if not self.time_features_added:
+                self.set_time_features()
+            if isinstance(time_feature, str):
+                if time_feature not in self._time_feature_choices:
+                    raise ValueError("If time_feature is a string, it must " +
+                                     f"be in {self._time_feature_choices}")
+                else:
+                    time_feature = [time_feature]
+            elif isinstance(time_feature, list):
+                if not all([item in self._time_feature_choices for item in time_feature]):
+                    raise ValueError(f"Each item in time_feature should be in {self._time_feature_choices}")
         # obtain timeline_id counts and largest number of posts in a timeline
         id_counts = self.df.groupby(['timeline_id'])['timeline_id'].count()
         time_n = id_counts.max()
@@ -146,7 +173,8 @@ class PrepareData:
         padded_dfs =  [self._pad_timeline(time_n = time_n,
                                           colnames = colnames,
                                           id_counts = id_counts,
-                                          id = id)
+                                          id = id,
+                                          time_feature = time_feature)
                        for id in id_counts.index]
         self.df_padded = pd.concat(padded_dfs).reset_index(drop=True)
         # reshape data and drop the
@@ -154,3 +182,47 @@ class PrepareData:
                                                              time_n,
                                                              len(self.df_padded.columns))
         return self.array_padded
+    
+    def get_torch_time_feature(self,
+                               time_feature: str = "time_encoding",
+                               standardise: bool = True) -> torch.tensor:
+        """
+        Returns a torch.tensor object of the time_feature that is requested
+        (the string passed has to be one of the strings in ._time_feature_choices)
+        """
+        if time_feature not in self._time_feature_choices:
+            raise ValueError(f"time_feature should be in {self._time_feature_choices}")
+        if not self.time_features_added:
+            self.set_time_features()
+        if standardise:
+            feature_mean = self.df[time_feature].mean()
+            feature_std = self.df[time_feature].std()
+            feature = (self.df[[time_feature]].values-feature_mean)/feature_std
+            return torch.tensor(feature)
+        else:
+            return torch.tensor(self.df[[time_feature]])
+    
+    def get_torch_path(self,
+                       include_time_features: bool = True) -> torch.tensor:
+        """
+        Returns a torch.tensor object of the path
+        Includes the time features by default (if they are present after the padding)
+        """
+        if self.array_padded is None:
+            raise ValueError("Need to first call .pad_timelines()")
+        if include_time_features:
+            # includes the time features (if they're present)
+            return torch.from_numpy(self.array_padded[:, :, 2:])
+        else:
+            n_time_features = len([item for item in self._time_feature_choices
+                                   if item in self.df_padded])
+            index_from = n_time_features+2
+            return torch.from_numpy(self.array_padded[:, :, index_from:])
+        
+    def get_torch_embeddings(self,
+                             reduced_embeddings: bool = False) -> torch.tensor:
+        if reduced_embeddings:
+            colnames = [col for col in self.df.columns if re.match("^d\w*[0-9]", col)]
+        else:
+            colnames = [col for col in self.df.columns if re.match("^e\w*[0-9]", col)]
+        return torch.tensor(self.df[colnames].values)

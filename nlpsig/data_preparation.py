@@ -197,11 +197,11 @@ class PrepareData:
         time_n = id_counts.max()
         # obtain columns for the dimension reduced sentence embeddings
         # these are columns which start with 'd' and have a number following it
-        colnames = [col for col in self.df.columns if re.match("^d\w*[0-9]", col)]
+        colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         if keep_embedding_sentences:
             # add columns for the sentence embeddings
             # these are columns which start with 'e' and have a number following it
-            colnames += [col for col in self.df.columns if re.match("^e\w*[0-9]", col)]
+            colnames += [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
         # pad each of the timeline-ids and store them in a list
         padded_dfs = [
             self._pad_timeline(
@@ -258,7 +258,7 @@ class PrepareData:
 
     def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
         if reduced_embeddings:
-            colnames = [col for col in self.df.columns if re.match("^d\w*[0-9]", col)]
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         else:
-            colnames = [col for col in self.df.columns if re.match("^e\w*[0-9]", col)]
+            colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
         return torch.tensor(self.df[colnames].values)

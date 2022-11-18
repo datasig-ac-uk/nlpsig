@@ -58,3 +58,11 @@ If you're developing `nlpsig` you may find it helpful to install it in editable 
 ```shell
 pip install -e .
 ```
+
+## Pre-commit
+
+We also have a [pre-commit](https://pre-commit.com/) config to run the code quality tools. We use `flake8`, `isort`, and `black` automatically when making commits. To setup the commit hooks:
+
+```shell
+pre-commit install --install-hooks
+```

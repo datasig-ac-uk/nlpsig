@@ -7,12 +7,36 @@ import torch
 
 
 class PrepareData:
+    """
+    Class to prepare dataset for computing signatures
+    """
+
     def __init__(
         self,
         dataset_df: pd.DataFrame,
         embeddings_sentence: np.array,
         embeddings_reduced: Optional[np.array] = None,
     ):
+        """
+        Class to prepare dataset for computing signatures
+
+        Parameters
+        ----------
+        dataset_df : pd.DataFrame
+            Dataset as a pandas dataframe
+        embeddings_sentence : np.array
+            Sentence embeddings for each of the items in dataset_df
+        embeddings_reduced : Optional[np.array], optional
+            Dimension reduced sentence embeddings, by default None
+
+        Raises
+        ------
+        ValueError
+            if dataset_df and embeddings_sentence does not have the same number of rows
+        ValueError
+            if dataset_df and embeddings_reduced does not have the same number of rows
+            (if embeddings_reduced is provided)
+        """
         # perform checks that dataset_df have the right column names to work with
         if dataset_df.shape[0] != embeddings_sentence.shape[0]:
             raise ValueError(
@@ -37,7 +61,18 @@ class PrepareData:
 
     def _get_modeling_dataframe(self) -> pd.DataFrame:
         """
-        Combine original dataset_df with embeddings and the embeddings after dimension reduction
+        [Private] Combines original dataset_df with the sentence
+        embeddings and the dimension reduced sentence embeddings
+
+        Returns
+        -------
+        pd.DataFrame
+            Original dataframe concatenated with the sentence embeddings and
+            dimension reduced sentence embeddings (column-wise)
+            - columns starting with "e" followed by a number denotes each
+              dimension of the sentence embeddings
+            - columns starting with "d" followed by a number denotes each
+              dimension of the dimension reduced sentence embeddings
         """
         if self.df is not None:
             return self.df
@@ -71,7 +106,17 @@ class PrepareData:
     @staticmethod
     def _time_fraction(x: pd.Timestamp) -> float:
         """
-        Converts the date, x, as a fraction of the year
+        [Private] Converts a date, x, as a fraction of the year.
+
+        Parameters
+        ----------
+        x : pd.Timestamp
+            Date
+
+        Returns
+        -------
+        float
+            The date as a fraction of the year.
         """
         # compute how many seconds the date is into the year
         x_year_start = pd.Timestamp(x.year, 1, 1)
@@ -83,9 +128,14 @@ class PrepareData:
     def set_time_features(self) -> pd.DataFrame:
         """
         Updates the dataframe in .df to include time features:
-        - time_encoding: the date as a fraction of the year
-        - time_diff: the difference in time (in minutes) between successive records
-        - timeline_index: the index of each post for each timeline
+        - `time_encoding`: the date as a fraction of the year
+        - `time_diff`: the difference in time (in minutes) between successive records
+        - `timeline_index`: the index of each post for each timeline
+
+        Returns
+        -------
+        pd.DataFrame
+            Updated dataframe with time features.
         """
         if self.time_features_added:
             print("Time features have already been added")
@@ -118,21 +168,48 @@ class PrepareData:
             first_index = last_index
         self.time_features_added = True
 
+        return self.df
+
     def _pad_timeline(
         self,
-        time_n,
+        time_n: int,
         colnames: List[str],
         id_counts: pd.Series,
         id: int,
         time_feature: List[str],
     ) -> pd.DataFrame:
         """
-        For a given timeline-id, id, the function slices the dataframe in .df
+        [Private] For a given timeline-id, id, the function slices the dataframe in .df
         by finding those with timeline_id == id and keeping only the columns
         found in colnames.
-        The function returns a dataframe with time_n rows. If the number of
-        records with timeline_id == id is less than time_n, it "pads" the
+        The function returns a dataframe with time_n rows:
+        - If the number of records with timeline_id == id is less than time_n, it "pads" the
         dataframe by adding in empty records (with label = -1 to indicate they're padded)
+        - If the number of records with timeline_id == id is equal to time_n, it just returns
+        the records with timeline_id == id
+
+        Parameters
+        ----------
+        time_n : int
+            Maximum number of records in a particular timeline.
+        colnames : List[str]
+            List of column names that we wish to keep from the dataframe.
+        id_counts : pd.Series
+            The number of records in associated to each timeline_id.
+        id : int
+            Which timeline_id are we padding.
+        time_feature : List[str]
+            List of time feature column names that we wish to keep from the dataframe.
+
+        Returns
+        -------
+        pd.DataFrame
+            Padded dataframe for timeline_id id.
+
+        Raises
+        ------
+        ValueError
+            if time_n is less thatn id_counts[id].
         """
         padding_n = time_n - id_counts[id]
         if padding_n > 0:
@@ -161,13 +238,37 @@ class PrepareData:
     ) -> np.array:
         """
         Creates an array which stores each of the timelines.
-        Wwe "pad" each timeline which has fewer number of posts
+        We "pad" each timeline which has fewer number of posts
         (by adding on empty records) to make them all have the same number of posts.
+        - A concatenated of padded dataframes are stored in `.df_padded`
+        - The method returns an 3 dimensional array storing each timeline and the embeddings,
+          and this is stored in `.array_padded`
 
-        A concatenated of padded dataframes are stored in .df_padded
+        Parameters
+        ----------
+        time_feature : Union[List[str], str]
+            Which time feature to keep
+        keep_embedding_sentences : bool, optional
+            Whether or not to keep the sentence embeddings, by default False
 
-        The method returns an 3 dimensional array storing each timeline and the embeddings,
-        and this is stored in .array_padded
+        Returns
+        -------
+        np.array
+            3 dimension array:
+            - First dimension is timelines
+            - Second dimension is the posts
+            - Third dimension are the features (e.g. sentence embeddings /
+              dimension reduced sentence embeddings, time features)
+
+        Raises
+        ------
+        ValueError
+            if `time_feature` is a string as is not in the possible time_features
+            (can be found in `._time_feature_choices` attribute)
+        ValueError
+            if `time_feature` is a list of strings and if any of the strings
+            are not in the possible time_features (can be found in
+            `._time_feature_choices` attribute)
         """
         print(
             "[INFO] Padding timelines and storing in .df_padded and .array_padded attributes"
@@ -224,8 +325,26 @@ class PrepareData:
         self, time_feature: str = "time_encoding", standardise: bool = True
     ) -> torch.tensor:
         """
-        Returns a torch.tensor object of the time_feature that is requested
-        (the string passed has to be one of the strings in ._time_feature_choices)
+        Returns a `torch.tensor` object of the time_feature that is requested
+        (the string passed has to be one of the strings in `._time_feature_choices`).
+
+        Parameters
+        ----------
+        time_feature : str, optional
+            Which time feature to obtain `torch.tensor` for, by default "time_encoding"
+        standardise : bool, optional
+            Whether or not to standardise the time feature, by default True
+
+        Returns
+        -------
+        torch.tensor
+            Time feature
+
+        Raises
+        ------
+        ValueError
+            if `time_feature` is not in the possible time_features
+            (can be found in `._time_feature_choices` attribute)
         """
         if time_feature not in self._time_feature_choices:
             raise ValueError(f"time_feature should be in {self._time_feature_choices}")
@@ -243,6 +362,22 @@ class PrepareData:
         """
         Returns a torch.tensor object of the path
         Includes the time features by default (if they are present after the padding)
+
+        Parameters
+        ----------
+        include_time_features : bool, optional
+            Whether or not to keep the time features, by default True
+
+        Returns
+        -------
+        torch.tensor
+            Path
+
+        Raises
+        ------
+        ValueError
+            if `self.array_padded` is `None`. In this case,
+            need to call `.pad_timelines()` method first.
         """
         if self.array_padded is None:
             raise ValueError("Need to first call .pad_timelines()")
@@ -257,6 +392,20 @@ class PrepareData:
             return torch.from_numpy(self.array_padded[:, :, index_from:])
 
     def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
+        """
+        Returns a `torch.tensor` object of the the embeddings
+
+        Parameters
+        ----------
+        reduced_embeddings : bool, optional
+            If True, returns `torch.tensor` of dimension reduced embeddings,
+            by default False
+
+        Returns
+        -------
+        torch.tensor
+            Embeddings
+        """
         if reduced_embeddings:
             colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         else:

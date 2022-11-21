@@ -4,7 +4,21 @@ from distinctipy import colorsets
 
 
 class PlotEmbedding:
+    """
+    Class to visualise word or sentence embeddings
+    """
+
     def __init__(self, x_data: np.array, y_data: np.array) -> None:
+        """
+        Class to visualise word or sentence embeddings
+
+        Parameters
+        ----------
+        x_data : np.array
+            features
+        y_data : np.array
+            y labels
+        """
         self.x_data = x_data
         self.y_data = y_data
         self.embed = {}
@@ -16,6 +30,16 @@ class PlotEmbedding:
     ) -> None:
         """
         Plots the embedding in 2d space after first performing dimension reduction
+
+        Parameters
+        ----------
+        embed_args : _type_, optional
+            Any keywords to be passed into the functions which perform
+            the dimensionality reduction, by default {"method": "pca", "dim": 2}
+        line_args : _type_, optional
+            Any keywords to be passed into the functions which plots the embeddings
+            (arguments for `matplotlib.pyplot.scatter()`),
+            by default {"marker": "o", "alpha": 0.3}
         """
         assert embed_args["dim"] >= 2, "dim in embed_args should be >= 2"
         self.embedding_dim_reduce(**embed_args)
@@ -40,6 +64,30 @@ class PlotEmbedding:
     ) -> None:
         """
         Performs dimension reduction to the data and adds reduced embeddings to .embed
+
+        Parameters
+        ----------
+        method : str, optional
+            Which dimensionality reduction technique to use, by default "pca"
+            Options are
+            - "pca" (PCA): implented using scikit-learn
+            - "umap" (UMAP): implemented using `umap-learn` package
+            - "tsne" (TSNE): implemented using scikit-learn
+        dim : int, optional
+            Number of components to keep, by default 3
+        overwrite : bool, optional
+            Whether or not to overwrite current implemented embedding, by default False
+        random_state : int, optional
+            Seed number, by default 42
+
+        Raises
+        ------
+        NotImplementedError
+            if `method` is not one of the implemented methods
+            Options are
+            - "pca" (PCA): implented using scikit-learn
+            - "umap" (UMAP): implemented using `umap-learn` package
+            - "tsne" (TSNE): implemented using scikit-learn
         """
         embed_name = f"{method}_{dim}"
         if (not overwrite) and (embed_name in self.embed):

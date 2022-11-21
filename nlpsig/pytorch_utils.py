@@ -20,10 +20,30 @@ def validation_pytorch(
     epoch: int,
     verbose: bool = False,
     verbose_epoch: int = 100,
-) -> Tuple[float, float]:
+) -> Tuple[float, float, float]:
     """
-    Evaluates the PyTorch model to a validation set and returns
-    the total loss, accuracy and F1 score
+    Evaluates the PyTorch model to a validation set and
+    returns the total loss, accuracy and F1 score
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        PyTorch model which inherits from the `torch.nn.Module` class
+    valid_loader : DataLoader
+        Validation dataset as `torch.utils.data.dataloader.DataLoader` object
+    criterion : torch.nn.Module
+        Loss function which inherits from the `torch.nn.Module` class
+    epoch : int
+        Epoch number
+    verbose : bool, optional
+        Whether or not to print progress, by default False
+    verbose_epoch : int, optional
+        How often to print progress during the epochs, by default 100
+
+    Returns
+    -------
+    Tuple[float, float, float]
+        Current average loss, accuracy and F1 score
     """
     # sets the model to evaluation mode
     model.eval()
@@ -72,8 +92,39 @@ def training_pytorch(
     verbose_item: int = 1000,
 ) -> nn.Module:
     """
-    Trains the PyTorch model using some training dataset and uses a validation dataset
-    to determine if early stopping is used
+    Trains the PyTorch model using some training dataset and
+    uses a validation dataset to determine if early stopping is used
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        PyTorch model which inherits from the `torch.nn.Module` class
+    train_loader : torch.utils.data.dataloader.DataLoader
+        Training dataset as `torch.utils.data.dataloader.DataLoader` object
+    valid_loader : torch.utils.data.dataloader.DataLoader
+        Validation dataset as `torch.utils.data.dataloader.DataLoader` object
+    criterion : torch.nn.Module
+        Loss function which inherits from the `torch.nn.Module` class
+    optimizer : torch.optim.optimizer.Optimizer
+        PyTorch Optimizer
+    num_epochs : int
+        Number of epochs
+    seed : Optional[int], optional
+        Seed number, by default 42
+    patience : Optional[int], optional
+        Patience parameter for early stopping rule, by default 3
+    verbose : bool, optional
+        Whether or not to print progress, by default False
+    verbose_epoch : int, optional
+        How often to print progress during the epochs, by default 100
+    verbose_item : int, optional
+        How often to print progress when iterating over items
+        in training set, by default 1000
+
+    Returns
+    -------
+    torch.nn.Module
+        Trained PyTorch model
     """
     # sets the model to training mode
     model.train()
@@ -131,8 +182,20 @@ def testing_pytorch(
     model: nn.Module, test_loader: DataLoader
 ) -> Tuple[torch.tensor, torch.tensor]:
     """
-    Evaluates the PyTorch model to a validation set and returns the
-    predicted labels and their corresponding true labels
+    Evaluates the PyTorch model to a validation set and
+    returns the predicted labels and their corresponding true labels
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        PyTorch model which inherits from the `torch.nn.Module` class
+    test_loader : DataLoader
+        Testing dataset as `torch.utils.data.dataloader.DataLoader` object
+
+    Returns
+    -------
+    Tuple[torch.tensor, torch.tensor]
+        Predicted labels and true labels
     """
     # sets the model to evaluation mode
     model.eval()
@@ -165,6 +228,36 @@ def KFold_pytorch(
         "verbose_item": 10000,
     },
 ) -> pd.DataFrame:
+    """
+    Performs KFold evaluation for a PyTorch model
+
+    Parameters
+    ----------
+    folds : GroupFolds
+        Object which stores and obtains the folds
+    model : torch.nn.Module
+        PyTorch model which inherits from the `torch.nn.Module` class
+    criterion : torch.nn.Module
+        Loss function which inherits from the `torch.nn.Module` class
+    optimizer : torch.optim.optimizer.Optimizer
+        PyTorch Optimizer
+    num_epochs : int
+        Number of epochs
+    seed : Optional[int], optional
+        Seed number, by default 42
+    patience : Optional[int], optional
+        Patience parameter for early stopping rule, by default 3
+    verbose_args : _type_, optional
+        Arguments for how to print progress, by default
+        {"verbose": True,
+         "verbose_epoch": 100,
+         "verbose_item": 10000}
+
+    Returns
+    -------
+    pd.DataFrame
+        Accuracy and F1 scores for each fold
+    """
     torch.save(
         obj={
             "model_state_dict": model.state_dict(),

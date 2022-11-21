@@ -3,6 +3,10 @@ import torch.nn as nn
 
 
 class FeedforwardNeuralNetModel(nn.Module):
+    """
+    Feed-forward Neural Network model with one hidden layer
+    """
+
     def __init__(
         self, input_dim: int, hidden_dim: int, output_dim: int, dropout_rate: float
     ):

@@ -9,6 +9,10 @@ from torch import Tensor
 
 
 class DyadicSignatures:
+    """
+    Class for obtaining path signatures
+    """
+
     def __init__(
         self,
         original_size: int,
@@ -24,7 +28,32 @@ class DyadicSignatures:
         add_time: bool = False,
     ):
         """
-        original_size: total number of sentences
+        Class for obtaining path signatures
+
+        Parameters
+        ----------
+        original_size : int
+            Total number of sentences
+        dim : int
+            Dimension of features
+        dyadic_path_min : float
+            Minimum year to start from
+        dyadic_path_max : float
+            Maximum end to end on
+        sig_dim : int, optional
+            Dimension of signature (does this), by default 3
+        intervals : int, optional
+            _description_, by default 1/12
+        k_history : Optional[int], optional
+            _description_, by default None
+        embedding_tp : str, optional
+            _description_, by default "sentence"
+        method : str, optional
+            _description_, by default "attention"
+        history_tp : str, optional
+            _description_, by default "sig"
+        add_time : bool, optional
+            Whether or not to include time?, by default False
         """
         self.original_size = original_size
         self.dim = dim
@@ -42,8 +71,20 @@ class DyadicSignatures:
             self.dyadic_path_min, self.dyadic_path_max, self.intervals
         ).tolist()
 
-    # per sample dyadic signature function
-    def _compute_signature(self, timeline):
+    def _compute_signature(self, timeline: torch.Tensor) -> torch.Tensor:
+        """
+        [Private] Compute per sample dyadic signature function
+
+        Parameters
+        ----------
+        timeline : torch.Tensor
+            Path for a particular timeline
+
+        Returns
+        -------
+        torch.Tensor
+            Path signature for a particular timeline
+        """
         count_points = 0
         dt = 1
         ind = 0
@@ -101,14 +142,13 @@ class DyadicSignatures:
                 sig_dt = torch.empty((1, int(self.channels)))
                 # assign last index
                 last_index_dt[:, (dt - 1)] = ind_end - 1 if (ind_end > 0) else 0
-                low_range = self.dyadic_path_dt[dt]
+                low_range = self.dyadic_path_dt[dt]  # noqa: F841
                 dt += 1
                 upper_range = self.dyadic_path_dt[dt]
                 if ind == num_points:
                     ind += 1
-                if (
-                    count_points != 1
-                ):  # push data to the next path if there is single data point
+                if count_points != 1:
+                    # push data to the next path if there is single data point
                     count_points = 0
                     ind_start = ind_end
                 else:
@@ -125,8 +165,20 @@ class DyadicSignatures:
             last_index_dt,
         )
 
-    # dyadic signatures for the whole array
     def compute_signatures(self, path):
+        """
+        Compute dyadic signatures for the whole array
+
+        Parameters
+        ----------
+        path : _type_
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         sig = torch.empty((0, len(self.dyadic_path_dt) - 3, int(self.channels)))
         last_index_dt_all = torch.empty((0, len(self.dyadic_path_dt) - 3))
         for sample in range(path.shape[0]):
@@ -139,8 +191,20 @@ class DyadicSignatures:
             last_index_dt_all = torch.cat((last_index_dt_all, i1), 0)
         return sig, last_index_dt_all
 
-    # combine dyadic signature paths into larger ones
     def _combine_signatures(self, sig):
+        """
+        [Private] Combine dyadic signature paths into larger ones
+
+        Parameters
+        ----------
+        sig : _type_
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         sig_cum = torch.empty((sig.shape[0], sig.shape[1], sig.shape[2]))
         sig_cum[:, 0, :] = sig[:, 0, :]
         for i in range(1, sig_cum.shape[1]):
@@ -153,10 +217,22 @@ class DyadicSignatures:
         return sig_cum
 
     def combine_signatures(self, sig):
+        """
+        Combine dyadic signature paths into larger ones
+
+        Parameters
+        ----------
+        sig : _type_
+            _description_
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         sig_combined = self._combine_signatures(sig)
         return sig_combined
 
-    # construct features of history + current post for each sample
     def _concat_features(
         self,
         timeline,
@@ -169,12 +245,41 @@ class DyadicSignatures:
         bert_embeddings=None,
         time_feature=None,
     ):
+        """
+        [Private] Construct features of history + current post for each sample
+
+        Parameters
+        ----------
+        timeline : _type_
+            _description_
+        path_class : _type_
+            _description_
+        last_index_dt_all : _type_
+            _description_
+        sig_combined : _type_
+            _description_
+        sample : _type_
+            _description_
+        ind : _type_
+            _description_
+        i : _type_
+            _description_
+        bert_embeddings : _type_, optional
+            _description_, by default None
+        time_feature : _type_, optional
+            _description_, by default None
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         # FOR ONE SAMPLE FIRST (1. case of first sample, 2. case of sample in first bucket. 3. case of sample not in first bucket) 4. sample first in next bucket
         ind_x = last_index_dt_all[
             sample,
             (last_index_dt_all[sample, :] < ind) & (last_index_dt_all[sample, :] != 0),
         ]
-        if self.k_history == None:
+        if self.k_history is None:
             if len(ind_x != 0):
                 dyadic_ind = int(ind_x.max().item())
                 try:
@@ -253,7 +358,7 @@ class DyadicSignatures:
             )
             pass
         # TIME AS A FEATURE
-        if self.add_time == True:
+        if self.add_time:
             output = torch.cat(
                 (output, time_feature[i, :].reshape(1, time_feature.shape[1])), 1
             )
@@ -267,6 +372,27 @@ class DyadicSignatures:
         bert_embeddings=None,
         time_feature=None,
     ):
+        """
+        Construct features of history + current post for each sample
+
+        Parameters
+        ----------
+        path : _type_
+            _description_
+        sig_combined : _type_
+            _description_
+        last_index_dt_all : _type_
+            _description_
+        bert_embeddings : _type_, optional
+            _description_, by default None
+        time_feature : _type_, optional
+            _description_, by default None
+
+        Returns
+        -------
+        _type_
+            _description_
+        """
         if self.embedding_tp == "sentence":
             emb_dim = bert_embeddings.shape[1]
         else:
@@ -279,7 +405,7 @@ class DyadicSignatures:
             overall_dim = max(channel_dim, emb_dim)
         else:
             overall_dim = channel_dim + emb_dim
-        if self.add_time == True:
+        if self.add_time:
             overall_dim += 1
         x_train = torch.empty((self.original_size, overall_dim))
         i = 0
@@ -307,17 +433,23 @@ class DyadicSignatures:
         return x_train
 
 
-# code from github: https://github.com/sooftware/attentions/blob/master/attentions.py
 class DotProductAttention(nn.Module):
     """
-    Compute the dot products of the query with all values and apply a softmax function to obtain the weights on the values
+    Compute the dot products of the query with all values and
+    apply a softmax function to obtain the weights on the values
+
+    source: https://github.com/sooftware/attentions/blob/master/attentions.py
     """
 
     def __init__(self, hidden_dim):
         super(DotProductAttention, self).__init__()
 
     def forward(self, query: Tensor, value: Tensor) -> Tuple[Tensor, Tensor]:
-        batch_size, hidden_dim, input_size = query.size(0), query.size(2), value.size(1)
+        batch_size, hidden_dim, input_size = (  # noqa: F841
+            query.size(0),
+            query.size(2),
+            value.size(1),
+        )
 
         score = torch.bmm(query, value.transpose(1, 2))
         attn = F.softmax(score.view(-1, input_size), dim=1).view(

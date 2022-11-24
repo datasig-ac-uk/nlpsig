@@ -28,6 +28,12 @@ class DyadicSignatures:
         add_time: bool = False,
     ):
         """
+        tp: type
+        k_history: use the last k posts of a user
+        dt: change in time like calculus
+        sig_dim: depth of the signature / order of signature
+        dim: dimension of the data itself
+
         Class for obtaining path signatures
 
         Parameters

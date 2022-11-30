@@ -9,7 +9,7 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
-from nlpsig.classification_utils import GroupFolds, set_seed
+from nlpsig.classification_utils import Folds, set_seed
 from nlpsig.focal_loss import FocalLoss
 
 
@@ -215,7 +215,7 @@ def testing_pytorch(
 
 
 def KFold_pytorch(
-    folds: GroupFolds,
+    folds: Folds,
     model: nn.Module,
     criterion: nn.Module,
     optimizer: Optimizer,
@@ -233,7 +233,7 @@ def KFold_pytorch(
 
     Parameters
     ----------
-    folds : GroupFolds
+    folds : Folds
         Object which stores and obtains the folds
     model : torch.nn.Module
         PyTorch model which inherits from the `torch.nn.Module` class

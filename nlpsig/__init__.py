@@ -1,4 +1,4 @@
-from .classification_utils import GroupFolds, set_seed
+from .classification_utils import Folds, set_seed
 from .data_preparation import PrepareData
 from .dimensionality_reduction import DimReduce
 from .dyadic_path import DotProductAttention, DyadicSignatures
@@ -12,7 +12,7 @@ from .pytorch_utils import (
 )
 
 __all__ = [
-    "GroupFolds",
+    "Folds",
     "set_seed",
     "PrepareData",
     "DimReduce",

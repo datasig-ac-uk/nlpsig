@@ -14,7 +14,7 @@ class PrepareData:
     def __init__(
         self,
         dataset_df: pd.DataFrame,
-        embeddings_sentence: np.array,
+        embeddings: np.array,
         embeddings_reduced: Optional[np.array] = None,
     ):
         """
@@ -24,37 +24,37 @@ class PrepareData:
         ----------
         dataset_df : pd.DataFrame
             Dataset as a pandas dataframe
-        embeddings_sentence : np.array
-            Sentence embeddings for each of the items in dataset_df
+        embeddings : np.array
+            Embeddings for each of the items in dataset_df
         embeddings_reduced : Optional[np.array], optional
-            Dimension reduced sentence embeddings, by default None
+            Dimension reduced embeddings, by default None
 
         Raises
         ------
         ValueError
-            if dataset_df and embeddings_sentence does not have the same number of rows
+            if dataset_df and embeddings does not have the same number of rows
         ValueError
             if dataset_df and embeddings_reduced does not have the same number of rows
             (if embeddings_reduced is provided)
         """
         # perform checks that dataset_df have the right column names to work with
-        if dataset_df.shape[0] != embeddings_sentence.shape[0]:
+        if dataset_df.shape[0] != embeddings.shape[0]:
             raise ValueError(
-                "dataset_df, embeddings_sentence and embeddings_reduced "
+                "dataset_df, embeddings and embeddings_reduced "
                 + "should have the same number of rows"
             )
         if embeddings_reduced is not None:
             if dataset_df.shape[0] != embeddings_reduced.shape[0]:
                 raise ValueError(
-                    "dataset_df, embeddings_sentence and embeddings_reduced "
+                    "dataset_df, embeddings and embeddings_reduced "
                     + "should have the same number of rows"
                 )
         self.dataset_df = dataset_df
-        self.embeddings_sentence = embeddings_sentence
+        self.embeddings = embeddings
         self.embeddings_reduced = embeddings_reduced
         self.df = None
         self.df = self._get_modeling_dataframe()
-        self._time_feature_choices = ["time_encoding", "time_diff"]
+        self._time_feature_choices = ["timeline_index"]
         self.time_features_added = False
         self.df_padded = None
         self.array_padded = None
@@ -62,24 +62,24 @@ class PrepareData:
     def _get_modeling_dataframe(self) -> pd.DataFrame:
         """
         [Private] Combines original dataset_df with the sentence
-        embeddings and the dimension reduced sentence embeddings
+        embeddings and the dimension reduced embeddings
 
         Returns
         -------
         pd.DataFrame
-            Original dataframe concatenated with the sentence embeddings and
-            dimension reduced sentence embeddings (column-wise)
+            Original dataframe concatenated with the embeddings and
+            dimension reduced embeddings (column-wise)
             - columns starting with "e" followed by a number denotes each
-              dimension of the sentence embeddings
+              dimension of the embeddings
             - columns starting with "d" followed by a number denotes each
-              dimension of the dimension reduced sentence embeddings
+              dimension of the dimension reduced embeddings
         """
         if self.df is not None:
             return self.df
         else:
-            embedding_sentence_df = pd.DataFrame(
-                self.embeddings_sentence,
-                columns=[f"e{i+1}" for i in range(self.embeddings_sentence.shape[1])],
+            embedding_df = pd.DataFrame(
+                self.embeddings,
+                columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
             )
             if self.embeddings_reduced is not None:
                 embeddings_reduced_df = pd.DataFrame(
@@ -92,15 +92,18 @@ class PrepareData:
                     [
                         self.dataset_df.reset_index(drop=True),
                         embeddings_reduced_df,
-                        embedding_sentence_df,
+                        embedding_df,
                     ],
                     axis=1,
                 )
             else:
                 df = pd.concat(
-                    [self.dataset_df.reset_index(drop=True), embedding_sentence_df],
+                    [self.dataset_df.reset_index(drop=True), embedding_df],
                     axis=1,
                 )
+            if "timeline_id" not in self.dataset_df.columns:
+                # set default value to timeline_id
+                df["timeline_id"] = 0
             return df
 
     @staticmethod
@@ -141,21 +144,28 @@ class PrepareData:
             print("Time features have already been added")
             return
         print("[INFO] Adding time feature columns into dataframe in .df")
-        # obtain time encoding by computing the fraction of year it is in
-        self.df["time_encoding"] = self.df["datetime"].map(
-            lambda t: self._time_fraction(t)
-        )
-        # sort by the timeline id and the date
-        self.df = self.df.sort_values(by=["timeline_id", "datetime"]).reset_index(
-            drop=True
-        )
-        # calculate time difference between posts
-        self.df["time_diff"] = 0
-        for i in range(1, len(self.df)):
-            if self.df["timeline_id"].iloc[i] != self.df["timeline_id"].iloc[i - 1]:
-                diff = self.df["datetime"].iloc[i] - self.df["datetime"].iloc[i - 1]
-                diff_in_mins = diff.total_seconds() / 60
-                self.df["time_diff"][i] = diff_in_mins
+        if "datetime" in self.df.columns:
+            self._time_feature_choices += ["time_encoding", "time_diff"]
+            # obtain time encoding by computing the fraction of year it is in
+            self.df["time_encoding"] = self.df["datetime"].map(
+                lambda t: self._time_fraction(t)
+            )
+            # sort by the timeline id and the date
+            self.df = self.df.sort_values(by=["timeline_id", "datetime"]).reset_index(
+                drop=True
+            )
+            # calculate time difference between posts
+            self.df["time_diff"] = 0
+            for i in range(1, len(self.df)):
+                if self.df["timeline_id"].iloc[i] != self.df["timeline_id"].iloc[i - 1]:
+                    diff = self.df["datetime"].iloc[i] - self.df["datetime"].iloc[i - 1]
+                    diff_in_mins = diff.total_seconds() / 60
+                    self.df["time_diff"][i] = diff_in_mins
+        else:
+            print(
+                "[INFO] datetime is not a column in .df, "
+                + "so only timeline_index is being added"
+            )
         # assign index for each post in each timeline
         self.df["timeline_index"] = 0
         first_index = 0
@@ -226,53 +236,34 @@ class PrepareData:
             )
             return df_padded.reset_index(drop=True)
         elif padding_n == 0:
-            colnames = ["timeline_id", "label"] + time_feature + colnames
-            return self.df[self.df["timeline_id"] == id][colnames]
+            columns = ["timeline_id", "label"] + time_feature + colnames
+            return self.df[self.df["timeline_id"] == id][columns]
         else:
             raise ValueError("time_n should be larger than id_counts[id]")
 
-    def pad_timelines(
+    def _obtain_columns(self, embeddings: str) -> List[str]:
+        if embeddings not in ["dim_reduced", "full", "both"]:
+            raise ValueError(
+                "embeddings must be either 'dim_reduced', 'full', or 'both'"
+            )
+        if embeddings == "dim_reduced":
+            # obtain columns for the dimension reduced embeddings
+            # these are columns which start with 'd' and have a number following it
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
+        elif embeddings == "full":
+            # obtain columns for the full embeddings
+            # these are columns which start with 'e' and have a number following it
+            colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
+        elif embeddings == "both":
+            # add columns for the embeddings
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
+            colnames += [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
+        return colnames
+
+    def _obtain_time_feature_columns(
         self,
-        time_feature: Union[List[str], str],
-        keep_embedding_sentences: bool = False,
-    ) -> np.array:
-        """
-        Creates an array which stores each of the timelines.
-        We "pad" each timeline which has fewer number of posts
-        (by adding on empty records) to make them all have the same number of posts.
-        - A concatenated of padded dataframes are stored in `.df_padded`
-        - The method returns an 3 dimensional array storing each timeline and the embeddings,
-          and this is stored in `.array_padded`
-
-        Parameters
-        ----------
-        time_feature : Union[List[str], str]
-            Which time feature to keep
-        keep_embedding_sentences : bool, optional
-            Whether or not to keep the sentence embeddings, by default False
-
-        Returns
-        -------
-        np.array
-            3 dimension array:
-            - First dimension is timelines
-            - Second dimension is the posts
-            - Third dimension are the features (e.g. sentence embeddings /
-              dimension reduced sentence embeddings, time features)
-
-        Raises
-        ------
-        ValueError
-            if `time_feature` is a string as is not in the possible time_features
-            (can be found in `._time_feature_choices` attribute)
-        ValueError
-            if `time_feature` is a list of strings and if any of the strings
-            are not in the possible time_features (can be found in
-            `._time_feature_choices` attribute)
-        """
-        print(
-            "[INFO] Padding timelines and storing in .df_padded and .array_padded attributes"
-        )
+        time_feature: Optional[Union[List[str], str]],
+    ) -> List[str]:
         if time_feature is None:
             time_feature = []
         else:
@@ -293,16 +284,61 @@ class PrepareData:
                     raise ValueError(
                         f"Each item in time_feature should be in {self._time_feature_choices}"
                     )
+
+    def pad_timelines(
+        self,
+        time_feature: Optional[Union[List[str], str]] = None,
+        embeddings: str = "full",
+    ) -> np.array:
+        """
+        Creates an array which stores each of the timelines.
+        We "pad" each timeline which has fewer number of posts
+        (by adding on empty records) to make them all have the same number of posts.
+        - A concatenated of padded dataframes are stored in `.df_padded`
+        - The method returns an 3 dimensional array storing each timeline and the embeddings,
+          and this is stored in `.array_padded`
+
+        Parameters
+        ----------
+        time_feature : Optional[Union[List[str], str]]
+            Which time feature(s) to keep. If None, then doesn't keep any
+        embeddings : str, optional
+            Which embeddings to keep, by default "full". Options:
+            - "dim_reduced": dimension reduced embeddings
+            - "full": full embeddings
+            - "both": keeps both dimension reduced and full embeddings
+
+        Returns
+        -------
+        np.array
+            3 dimension array:
+            - First dimension is timelines
+            - Second dimension is the posts
+            - Third dimension are the features (e.g. embeddings /
+              dimension reduced embeddings, time features)
+
+        Raises
+        ------
+        ValueError
+            if `time_feature` is a string as is not in the possible time_features
+            (can be found in `._time_feature_choices` attribute)
+        ValueError
+            if `time_feature` is a list of strings and if any of the strings
+            are not in the possible time_features (can be found in
+            `._time_feature_choices` attribute)
+        """
+        print(
+            "[INFO] Padding timelines and storing in .df_padded and .array_padded attributes"
+        )
         # obtain timeline_id counts and largest number of posts in a timeline
-        id_counts = self.df.groupby(["timeline_id"])["timeline_id"].count()
+        id_counts = self.df["timelind_id"].value_counts()
         time_n = id_counts.max()
-        # obtain columns for the dimension reduced sentence embeddings
-        # these are columns which start with 'd' and have a number following it
-        colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
-        if keep_embedding_sentences:
-            # add columns for the sentence embeddings
-            # these are columns which start with 'e' and have a number following it
-            colnames += [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
+        # obtain time feature colnames
+        time_feature_colnames = self._obtain_time_feature_columns(
+            time_feature=time_feature
+        )
+        # obtain colnames of embeddings
+        colnames = self._obtain_columns(embeddings=embeddings)
         # pad each of the timeline-ids and store them in a list
         padded_dfs = [
             self._pad_timeline(
@@ -310,12 +346,11 @@ class PrepareData:
                 colnames=colnames,
                 id_counts=id_counts,
                 id=id,
-                time_feature=time_feature,
+                time_feature=time_feature_colnames,
             )
             for id in id_counts.index
         ]
         self.df_padded = pd.concat(padded_dfs).reset_index(drop=True)
-        # reshape data and drop the
         self.array_padded = np.array(self.df_padded).reshape(
             len(id_counts), time_n, len(self.df_padded.columns)
         )

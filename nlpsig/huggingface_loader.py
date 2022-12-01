@@ -9,7 +9,7 @@ pd.options.mode.chained_assignment = None
 
 
 class loadHF:
-    """Load dataset from HuggingFace."""
+    """Load dataset from HuggingFace"""
 
     def __init__(
         self, dataset_name: str = "newspop", split_name: str = "train"

@@ -105,7 +105,7 @@ class TextEncoder:
         else:
             print(
                 "[INFO] the model is not an instance of the SentenceTransformer class. "
-                + "max_seq_lenght has not been set."
+                + "max_seq_lenght has not been set"
             )
 
     def load_model(self, force_reload: bool = False) -> None:
@@ -123,12 +123,12 @@ class TextEncoder:
             if `.model_name` is not in `.model_dict`
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] {self.model_name} model is already loaded.")
+            print(f"[INFO] {self.model_name} model is already loaded")
             return
         if (force_reload) and (self.model == "pre-computed"):
             print(
                 "[INFO] the current embeddings were computed before "
-                + "and were loaded into this class."
+                + "and were loaded into this class"
                 + "First reset the 'model_name' and 'model_args' attributes "
                 + "if you want to re-load different embeddings"
             )
@@ -138,7 +138,7 @@ class TextEncoder:
         if detected_model_library is None:
             raise NotImplementedError(
                 f"{self.model_name} is not implemented. "
-                f"Try one of the following: " + f"{', '.join(self.model_dict.keys())}."
+                f"Try one of the following: " + f"{', '.join(self.model_dict.keys())}"
             )
         elif detected_model_library == "sentence_embedding":
             self.model = SentenceTransformer(self.model_name)

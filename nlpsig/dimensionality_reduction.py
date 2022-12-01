@@ -118,7 +118,7 @@ class DimReduce:
         else:
             raise NotImplementedError(
                 f"{self.method} is not implemented. "
-                f"Try one of the following: " + f"{', '.join(implemented_methods)}."
+                f"Try one of the following: " + f"{', '.join(implemented_methods)}"
             )
         return self.embedding
 

@@ -72,7 +72,7 @@ def validation_pytorch(
                     f"Epoch: {epoch+1} || "
                     + f"Loss: {total_loss / len(valid_loader)} || "
                     + f"Accuracy: {accuracy} || "
-                    + f"F1-score: {f1_v}."
+                    + f"F1-score: {f1_v}"
                 )
 
         return total_loss / len(valid_loader), accuracy, f1_v

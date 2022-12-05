@@ -14,9 +14,9 @@ class PrepareData:
     def __init__(
         self,
         dataset_df: pd.DataFrame,
-        id_column: str,
         embeddings: np.array,
         embeddings_reduced: Optional[np.array] = None,
+        id_column: Optional[str] = None,
         labels_column: Optional[str] = None,
     ):
         """
@@ -26,14 +26,18 @@ class PrepareData:
         ----------
         dataset_df : pd.DataFrame
             Dataset as a pandas dataframe
-        id_column : str
-            __description__
         embeddings : np.array
             Embeddings for each of the items in dataset_df
         embeddings_reduced : Optional[np.array], optional
             Dimension reduced embeddings, by default None
+        id_column : Optional[str]
+            Name of the column which identifies each of the text, e.g.
+            - "text_id" (if each item in dataset_df is a word or sentence from a particular text),
+            - "user_id" (if each item in dataset_df is a post from a particular user)
+            - "timeline_id" (if each item in dataset_df is a post from a particular time)
+            If None, it will create a dummy id_column named "dummy_id" and fill with zeros
         labels_column : Optional[str]
-            __description__
+            Name of the column which are corresponds to the labels of the data
 
         Raises
         ------
@@ -112,6 +116,11 @@ class PrepareData:
                     [self.dataset_df.reset_index(drop=True), embedding_df],
                     axis=1,
                 )
+            if self.id_column is None:
+                self.id_column = "dummy_id"
+                print(
+                    f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'"
+                )
             if self.id_column not in self.dataset_df.columns:
                 # set default value to id_column
                 print(
@@ -134,7 +143,7 @@ class PrepareData:
         Returns
         -------
         float
-            The date as a fraction of the year.
+            The date as a fraction of the year
         """
         # compute how many seconds the date is into the year
         x_year_start = pd.Timestamp(x.year, 1, 1)
@@ -147,13 +156,15 @@ class PrepareData:
         """
         [Private] Updates the dataframe in .df to include time features:
         - `time_encoding`: the date as a fraction of the year
+           (only if 'datetime' is a column in .df dataframe)
         - `time_diff`: the difference in time (in minutes) between successive records
+           (only if 'datetime' is a column in .df dataframe)
         - `timeline_index`: the index of each post for each id
 
         Returns
         -------
         pd.DataFrame
-            Updated dataframe with time features.
+            Updated dataframe with time features
         """
         if self.time_features_added:
             print("Time features have already been added")
@@ -207,22 +218,25 @@ class PrepareData:
 
     def _obtain_colnames(self, embeddings: str) -> List[str]:
         """
-        [Private]
+        [Private] Obtains the column names storing the embeddings.
 
         Parameters
         ----------
         embeddings : str
-            _description_
+            Options are:
+            - "dim_reduced": dimension reduced embeddings
+            - "full": full embeddings
+            - "both": concatenation of dimension reduced and full embeddings
 
         Returns
         -------
         List[str]
-            _description_
+            List of column names which store the embeddings
 
         Raises
         ------
         ValueError
-            _description_
+            if embeddings is not either of 'dim_reduced', 'full', or 'both'
         """
         if embeddings not in ["dim_reduced", "full", "both"]:
             raise ValueError(
@@ -247,24 +261,28 @@ class PrepareData:
         time_feature: Optional[Union[List[str], str]],
     ) -> List[str]:
         """
-        [Private]
+        [Private] Obtains the column names storing the time features requested.
 
         Parameters
         ----------
         time_feature : Optional[Union[List[str], str]]
-            _description_
+            If is a string, it must be the list found in
+            `_time_feature_choices` attribute. If is a list,
+            each item must be a string and it must be in the
+            list found in `_time_feature_choices` attribute
 
         Returns
         -------
         List[str]
-            _description_
+            List of column names which store the time features
 
         Raises
         ------
         ValueError
-            _description_
+            if `time_feature` is a string, and it is not found in `_time_feature_choices`
         ValueError
-            _description_
+            if `time_feature` is a list of strings, and one of the items
+            is not found in `_time_feature_choices`
         """
         if time_feature is None:
             time_feature = []
@@ -316,7 +334,8 @@ class PrepareData:
         k : int
             Number of items to keep
         zero_padding : bool
-            __description__
+            If True, will pad with zeros. Otherwise, pad with the latest
+            text associated to the id
         colnames : List[str]
             List of column names that we wish to keep from the dataframe
         id_counts : pd.Series
@@ -330,6 +349,11 @@ class PrepareData:
         -------
         pd.DataFrame
             Padded dataframe for a particular id
+
+        Raises
+        ------
+        ValueError
+            if k is not a positive integer
         """
         if k < 0:
             raise ValueError("k must be a positive integer")
@@ -381,7 +405,7 @@ class PrepareData:
         k: int,
         zero_padding: bool,
         colnames: List[str],
-        index: pd.Series,
+        index: int,
         time_feature: Union[List[str], None],
     ) -> pd.DataFrame:
         """
@@ -390,27 +414,29 @@ class PrepareData:
         Parameters
         ----------
         k : int
-            _description_
+            Number of items to keep
         zero_padding : bool
-            _description_
+            If True, will pad with zeros. Otherwise, pad with the latest
+            text associated to the id
         colnames : List[str]
-            _description_
-        index : pd.Series
-            _description_
+            List of column names that we wish to keep from the dataframe
+        index : int
+            Which index of the dataframe are we padding
         time_feature : List[str]
-            _description_
+            List of time feature column names that we wish to keep from the dataframe
 
         Returns
         -------
         pd.DataFrame
-            _description_
+            Padded dataframe for a particular index of the dataframe by looking
+            at the previous texts of a particular id
 
         Raises
         ------
         ValueError
-            _description_
+            if k is not a positive integer
         ValueError
-            _description_
+            if index is outside the range of indicies of the dataframe ([0, 1, ..., len(.df)])
         """
         if k < 0:
             raise ValueError("k must be a positive integer")
@@ -474,23 +500,39 @@ class PrepareData:
         embeddings: str = "full",
     ) -> Tuple[pd.DataFrame, np.array]:
         """
-        Creates an array which stores each of the ids.
-        We "pad" each id which has fewer number of posts
-        (by adding on empty records) to make them all have the same number of posts.
-        - A concatenated of padded dataframes are stored in `.df_padded`
-        - The method returns an 3 dimensional array storing each id and the embeddings,
-          and this is stored in `.array_padded`
+        Creates an array which stores the path.
+        We create a path for each id in id_column if `pad_by="id"`
+        (by constructing a path of the embeddings of the texts associated to each id),
+        or for each item in `.df` if `pad_by="history"`
+        (by constructing a path of the embeddings of the previous texts).
+
+        We can decide how long our path is by letting `method="k_last` and specifying `k`.
+        Alternatively, we can set `method="max"`, which sets the length of the path
+        by setting `k` to be the largest number of texts associated to an individual id.
+
+        The function "pads" if there aren't enough texts to fill in (e.g. if requesting for
+        the last 5 posts for an id, but there are less than 5 posts available),
+        by adding empty records (if `zero_padding=True`)
+        or by the last previous text (if `zero_padding=False`). This ensures that each
+        path has the same number of data points.
 
         Parameters
         ----------
         pad_by : str
-            __description__
+            How to construct the path. Options are:
+            - "id": constructs a path of the embeddings of the texts associated to each id
+            - "history": constructs a path by looking at the embeddings of the previous texts
+              for each text
         method : str
-            __description__, default "k_last"
+            How long the path is, default "k_last". Options are:
+            - "k_last": specifying the length of the path through the choice of `k` (see below)
+            - "max": the length of the path is chosen by looking at the largest number
+              of texts associated to an individual id in `.id_column`
         zero_padding : bool
-            __description__, default True
+            If True, will pad with zeros. Otherwise, pad with the latest
+            text associated to the id
         k : int
-            __description__, default 5
+            The requested length of the path, default 5. This is ignored if `method="max"`
         time_feature : Optional[Union[List[str], str]]
             Which time feature(s) to keep. If None, then doesn't keep any
         embeddings : str, optional
@@ -502,21 +544,12 @@ class PrepareData:
         Returns
         -------
         np.array
-            3 dimension array:
-            - First dimension is ids
-            - Second dimension is the posts
+            3 dimension array of the path:
+            - First dimension is ids (if `pad_by="id"`)
+              or each text (if `pad_by="history"`)
+            - Second dimension is the associated texts
             - Third dimension are the features (e.g. embeddings /
               dimension reduced embeddings, time features)
-
-        Raises
-        ------
-        ValueError
-            if `time_feature` is a string as is not in the possible time_features
-            (can be found in `._time_feature_choices` attribute)
-        ValueError
-            if `time_feature` is a list of strings and if any of the strings
-            are not in the possible time_features (can be found in
-            `._time_feature_choices` attribute)
         """
         print(
             "[INFO] Padding ids and storing in .df_padded and .array_padded attributes"

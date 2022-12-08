@@ -183,17 +183,24 @@ class PrepareData:
             # calculate time difference between posts
             self.df["time_diff"] = 0
             for i in range(1, len(self.df)):
-                if (
-                    self.df[self.id_column].iloc[i]
-                    != self.df[self.id_column].iloc[i - 1]
-                ):
+                if self.id_column == "timeline_id":
+                    condition = (
+                        self.df[self.id_column].iloc[i]
+                        != self.df[self.id_column].iloc[i - 1]
+                    )
+                else:
+                    condition = (
+                        self.df[self.id_column].iloc[i]
+                        == self.df[self.id_column].iloc[i - 1]
+                    )
+                if condition:
                     diff = self.df["datetime"].iloc[i] - self.df["datetime"].iloc[i - 1]
                     diff_in_mins = diff.total_seconds() / 60
-                    self.df["time_diff"][i] = diff_in_mins
+                    self.df.loc[i, "time_diff"] = diff_in_mins
         else:
             print(
                 "[INFO] datetime is not a column in .df, "
-                + "so only 'timeline_index' is being added"
+                + "so only 'timeline_index' is added"
             )
             print(
                 "[INFO] as datetime is not a column in .df, "
@@ -203,15 +210,15 @@ class PrepareData:
         self._time_feature_choices += ["timeline_index"]
         self.df["timeline_index"] = 0
         first_index = 0
-        for id in set(self.df[self.id_column]):
+        for id in sorted(list(set(self.df[self.id_column]))):
             # obtain the indices for this id
             id_len = sum(self.df[self.id_column] == id)
-            last_index = first_index + id_len
+            last_index = first_index + id_len - 1
             # assign indices for each post in this id from 1 to id_len
-            self.df["timeline_index"][first_index:last_index] = list(
+            self.df.loc[first_index:last_index, "timeline_index"] = list(
                 range(1, id_len + 1)
             )
-            first_index = last_index
+            first_index = last_index + 1
         self.time_features_added = True
 
         return self.df

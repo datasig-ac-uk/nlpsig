@@ -14,7 +14,7 @@ class DimReduce:
     def __init__(
         self,
         method: str = "ppapca",
-        components: int = 5,
+        n_components: int = 5,
         dim_reduction_kwargs: Optional[dict] = None,
     ) -> None:
         """
@@ -30,14 +30,14 @@ class DimReduce:
             - "tsne" (TSNE): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
             - "ppapacppa" (PPA-PCA-PPA)
-        components : int, optional
-            Number of components to keep, by default 5
+        n_components : int, optional
+            Number of n_components to keep, by default 5
         dim_reduction_kwargs : Optional[dict], optional
             Any keywords to be passed into the functions which perform the
             dimensionality reduction, by default None
         """
         self.method = method
-        self.components = components
+        self.n_components = n_components
         self.kwargs = dim_reduction_kwargs
         self.embedding = None
 
@@ -73,7 +73,7 @@ class DimReduce:
             if self.method == "pca":
                 if self.kwargs is None:
                     self.kwargs = {}
-                pca = PCA(n_components=self.components, **self.kwargs)
+                pca = PCA(n_components=self.n_components, **self.kwargs)
                 self.embedding = pca.fit_transform(embeddings)
             elif self.method == "umap":
                 if self.kwargs is None:
@@ -83,7 +83,7 @@ class DimReduce:
                         "metric": "cosine",
                     }
                 reducer = umap.UMAP(
-                    n_components=self.components,
+                    n_components=self.n_components,
                     random_state=random_state,
                     transform_seed=random_state,
                     **self.kwargs,
@@ -94,7 +94,7 @@ class DimReduce:
                 if self.kwargs is None:
                     self.kwargs = {}
                 tsne = TSNE(
-                    n_components=self.components,
+                    n_components=self.n_components,
                     learning_rate="auto",
                     random_state=random_state,
                     **self.kwargs,
@@ -104,14 +104,14 @@ class DimReduce:
             elif self.method == "ppapca":
                 self.embedding = self.ppa_pca(
                     embeddings,
-                    components=self.components,
+                    n_components=self.n_components,
                     dim=3,
                     extra_ppa=False,
                 )
             elif self.method == "ppapcappa":
                 self.embedding = self.ppa_pca(
                     embeddings,
-                    components=self.components,
+                    n_components=self.n_components,
                     dim=3,
                     extra_ppa=True,
                 )
@@ -125,7 +125,7 @@ class DimReduce:
     def ppa_pca(
         self,
         embeddings: np.array,
-        components: int = 5,
+        n_components: int = 5,
         pca_dim: int = 50,
         dim: int = 3,
         extra_ppa: bool = False,
@@ -137,14 +137,14 @@ class DimReduce:
         ----------
         embeddings : np.array
             Word or sentence embeddings which we wish to reduce the dimensions of
-        components : int, optional
-            Number of components to keep, by default 5
+        n_components : int, optional
+            Number of n_components to keep, by default 5
         pca_dim: int, optional
             Number of components for PCA algorithm
-            (must be greater than components), by default 50
+            (must be greater than n_components), by default 50
         dim : int, optional
             Threshold parameter D in Post Processing Algorithm
-            (must be smaller than components), by default 3
+            (must be smaller than n_components), by default 3
         extra_ppa : bool, optional
             Whether or not to apply PPA again, by default False
 
@@ -156,12 +156,12 @@ class DimReduce:
         Raises
         ------
         ValueError
-            if components is less than dim, or if components is greater than pca_dim
+            if n_components is less than dim, or if n_components is greater than pca_dim
         """
-        if components < dim:
-            raise ValueError("components must be greater than or equal to dim")
-        elif components > pca_dim:
-            raise ValueError("components must be less than or equal to pca_dim")
+        if n_components < dim:
+            raise ValueError("n_components must be greater than or equal to dim")
+        elif n_components > pca_dim:
+            raise ValueError("n_components must be less than or equal to pca_dim")
 
         # PPA NO 1
         # Subtract mean embedding
@@ -182,7 +182,7 @@ class DimReduce:
         pca = PCA(n_components=pca_dim)
         embeddings_pca = z - np.mean(z)
         embeddings_fit = pca.fit_transform(embeddings_pca)
-        embs_reduced = embeddings_fit[:, :components]
+        embs_reduced = embeddings_fit[:, :n_components]
 
         if extra_ppa:
             # PPA NO 2
@@ -198,6 +198,6 @@ class DimReduce:
                 for u in U2[1:dim]:
                     x = x - np.dot(u.transpose(), x) * u
                 z_new.append(x)
-            embs_reduced = z[:, :components]
+            embs_reduced = z[:, :n_components]
 
         return embs_reduced

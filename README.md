@@ -5,9 +5,14 @@
     </p>
 </div>
 
-
+Original architecture:
 <p align="center">
 <img src="./figs/architecture_figure.png" alt="Model architecture">
+</p>
+
+DeepSigNet architecture:
+<p align="center">
+<img src="./figs/updated_architecture_figure.png" alt="Model architecture">
 </p>
 
 ## Installation

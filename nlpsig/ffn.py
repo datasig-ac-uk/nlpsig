@@ -10,6 +10,20 @@ class FeedforwardNeuralNetModel(nn.Module):
     def __init__(
         self, input_dim: int, hidden_dim: int, output_dim: int, dropout_rate: float
     ):
+        """
+        Feed-forward Neural Network model with one hidden layer
+
+        Parameters
+        ----------
+        input_dim : int
+            dimension of input layer
+        hidden_dim : int
+            dimension of hidden layer
+        output_dim : int
+            dimension of output layer
+        dropout_rate : float
+            probability of dropout
+        """
         super(FeedforwardNeuralNetModel, self).__init__()
         self.fc1 = nn.Linear(input_dim, hidden_dim)  # Linear function
         self.relu1 = nn.ReLU()  # Non-linearity

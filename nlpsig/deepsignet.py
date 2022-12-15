@@ -4,19 +4,53 @@ import torch.nn as nn
 
 
 class DeepSigNet(nn.Module):
+    """ """
+
     def __init__(
         self,
-        input_channels,
-        output_channels,
-        sig_d,
-        post_dim,
-        hidden_dim,
-        output_dim,
-        dropout_rate,
-        add_time=False,
-        augmentation_tp="Conv1d",
-        augmentation_layers=(),
+        input_channels: int,
+        output_channels: int,
+        sig_depth: int,
+        post_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        dropout_rate: float,
+        add_time: bool = False,
+        augmentation_tp: str = "Conv1d",
+        augmentation_layers: tuple = (),
     ):
+        """
+
+
+        Parameters
+        ----------
+        input_channels : int
+            _description_
+        output_channels : int
+            _description_
+        sig_depth : int
+            # is this the depth of the signature? like level of sig_depth
+            _description_
+        post_dim : int
+            # is this the dimension of the embeddings? should be renamed to something else
+            _description_
+        hidden_dim : int
+            _description_
+        output_dim : int
+            _description_
+        dropout_rate : float
+            _description_
+        add_time : bool, optional
+            # why bother with this when we can just pass in whatever we want
+            # PrepareData should do all the data stuff
+            _description_, by default False
+        augmentation_tp : str, optional
+            # what does tp mean again?
+            _description_, by default "Conv1d"
+        augmentation_layers : tuple, optional
+            # what is this and why is it just a default tuple?
+            _description_, by default ()
+        """
         super(DeepSigNet, self).__init__()
         self.input_channels = input_channels
         self.add_time = add_time
@@ -37,14 +71,15 @@ class DeepSigNet(nn.Module):
         # Non-linearity
         self.tanh1 = nn.Tanh()
         # Signature
-        self.signature = signatory.LogSignature(depth=sig_d)
+        self.signature = signatory.LogSignature(depth=sig_depth)
         if self.add_time:
             input_dim = (
-                signatory.logsignature_channels(output_channels + 1, sig_d) + post_dim
+                signatory.logsignature_channels(output_channels + 1, sig_depth)
+                + post_dim
             )
         else:
             input_dim = (
-                signatory.logsignature_channels(output_channels, sig_d) + post_dim
+                signatory.logsignature_channels(output_channels, sig_depth) + post_dim
             )
         # Linear function
         self.fc1 = nn.Linear(input_dim, hidden_dim)
@@ -115,23 +150,61 @@ class DeepSigNet(nn.Module):
 
 
 class StackedDeepSigNet(nn.Module):
+    """
+    __summary__
+    """
+
     def __init__(
         self,
-        input_channels,
-        output_channels,
-        sig_d,
-        hidden_dim_lstm,
-        post_dim,
-        hidden_dim,
-        output_dim,
-        dropout_rate,
-        add_time=False,
-        augmentation_tp="Conv1d",
-        augmentation_layers=(),
-        BiLSTM=False,
-        comb_method="gated_addition",
-        blocks=2,
+        input_channels: int,
+        output_channels: int,
+        sig_depth: int,
+        hidden_dim_lstm: int,
+        post_dim: int,
+        hidden_dim: int,
+        output_dim: int,
+        dropout_rate: float,
+        add_time: bool = False,
+        augmentation_tp: str = "Conv1d",
+        augmentation_layers: tuple = (),
+        BiLSTM: bool = False,
+        comb_method: str = "gated_addition",
+        blocks: int = 2,
     ):
+        """
+        _summary_
+
+        Parameters
+        ----------
+        input_channels : int
+            _description_
+        output_channels : int
+            _description_
+        sig_depth : int
+            _description_
+        hidden_dim_lstm : int
+            _description_
+        post_dim : int
+            _description_
+        hidden_dim : int
+            _description_
+        output_dim : int
+            _description_
+        dropout_rate : float
+            _description_
+        add_time : bool, optional
+            _description_, by default False
+        augmentation_tp : str, optional
+            _description_, by default "Conv1d"
+        augmentation_layers : tuple, optional
+            _description_, by default ()
+        BiLSTM : bool, optional
+            _description_, by default False
+        comb_method : str, optional
+            _description_, by default "gated_addition"
+        blocks : int, optional
+            _description_, by default 2
+        """
         super(StackedDeepSigNet, self).__init__()
         self.input_channels = input_channels
         self.add_time = add_time
@@ -156,11 +229,13 @@ class StackedDeepSigNet(nn.Module):
         # Non-linearity
         self.tanh1 = nn.Tanh()
         # Signature with lift
-        self.signature1 = signatory.LogSignature(depth=sig_d, stream=True)
+        self.signature1 = signatory.LogSignature(depth=sig_depth, stream=True)
         if self.add_time:
-            input_dim_lstm = signatory.logsignature_channels(output_channels + 1, sig_d)
+            input_dim_lstm = signatory.logsignature_channels(
+                output_channels + 1, sig_depth
+            )
         else:
-            input_dim_lstm = signatory.logsignature_channels(output_channels, sig_d)
+            input_dim_lstm = signatory.logsignature_channels(output_channels, sig_depth)
 
         # additional blocks in the network
         if blocks > 2:
@@ -171,69 +246,37 @@ class StackedDeepSigNet(nn.Module):
                 batch_first=True,
                 bidirectional=False,
             ).double()
-            self.signature1b = signatory.LogSignature(depth=sig_d, stream=True)
-            input_dim_lstm = signatory.logsignature_channels(hidden_dim_lstm[-2], sig_d)
+            self.signature1b = signatory.LogSignature(depth=sig_depth, stream=True)
+            input_dim_lstm = signatory.logsignature_channels(
+                hidden_dim_lstm[-2], sig_depth
+            )
 
+        mult = 2 if BiLSTM else 1
+        # LSTM
+        self.lstm = nn.LSTM(
+            input_size=input_dim_lstm,
+            hidden_size=hidden_dim_lstm[-1],
+            num_layers=1,
+            batch_first=True,
+            bidirectional=BiLSTM,
+        ).double()
         if comb_method == "concatenation":
-            # LSTM
-            if BiLSTM:
-                self.lstm = nn.LSTM(
-                    input_size=input_dim_lstm,
-                    hidden_size=hidden_dim_lstm[-1],
-                    num_layers=1,
-                    batch_first=True,
-                    bidirectional=True,
-                ).double()
-                input_dim = (
-                    signatory.logsignature_channels(2 * hidden_dim_lstm[-1], sig_d)
-                    + post_dim
-                )
-            else:
-                self.lstm = nn.LSTM(
-                    input_size=input_dim_lstm,
-                    hidden_size=hidden_dim_lstm[-1],
-                    num_layers=1,
-                    batch_first=True,
-                    bidirectional=False,
-                ).double()
-                input_dim = (
-                    signatory.logsignature_channels(hidden_dim_lstm[-1], sig_d)
-                    + post_dim
-                )
+            input_dim = (
+                signatory.logsignature_channels(mult * hidden_dim_lstm[-1], sig_depth)
+                + post_dim
+            )
         elif comb_method == "gated_addition":
-            if BiLSTM:
-                self.lstm = nn.LSTM(
-                    input_size=input_dim_lstm,
-                    hidden_size=hidden_dim_lstm[-1],
-                    num_layers=1,
-                    batch_first=True,
-                    bidirectional=True,
-                ).double()
-                input_dim = input_bert_dim
-                input_gated_linear = (
-                    signatory.logsignature_channels(2 * hidden_dim_lstm[-1], sig_d) + 1
-                )
-                self.fc_scale = nn.Linear(input_gated_linear, input_bert_dim)
-                # define the scaler parameter
-                self.scaler = torch.nn.Parameter(torch.zeros(1, input_bert_dim))
-            else:
-                self.lstm = nn.LSTM(
-                    input_size=input_dim_lstm,
-                    hidden_size=hidden_dim_lstm[-1],
-                    num_layers=1,
-                    batch_first=True,
-                    bidirectional=False,
-                ).double()
-                input_dim = input_bert_dim
-                input_gated_linear = (
-                    signatory.logsignature_channels(hidden_dim_lstm[-1], sig_d) + 1
-                )
-                self.fc_scale = nn.Linear(input_gated_linear, input_bert_dim)
-                # define the scaler parameter
-                self.scaler = torch.nn.Parameter(torch.zeros(1, input_bert_dim))
+            input_dim = input_bert_dim
+            input_gated_linear = (
+                signatory.logsignature_channels(mult * hidden_dim_lstm[-1], sig_depth)
+                + 1
+            )
+            self.fc_scale = nn.Linear(input_gated_linear, input_bert_dim)
+            # define the scaler parameter
+            self.scaler = torch.nn.Parameter(torch.zeros(1, input_bert_dim))
 
         # Signature without lift
-        self.signature2 = signatory.LogSignature(depth=sig_d, stream=False)
+        self.signature2 = signatory.LogSignature(depth=sig_depth, stream=False)
         # Linear function
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         # Non-linearity

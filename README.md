@@ -12,7 +12,7 @@ Original architecture:
 
 DeepSigNet architecture:
 <p align="center">
-<img src="./figs/updated_architecture_figure.png" alt="Model architecture">
+<img src="./figs/updated_architecture_figure_2.png" alt="Model architecture">
 </p>
 
 ## Installation

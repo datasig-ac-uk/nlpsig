@@ -4,10 +4,18 @@ from typing import Iterable, List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
+from datasets.arrow_dataset import Dataset
 from sentence_transformers import SentenceTransformer
 from torch import nn
 from torch.utils.data import DataLoader
-from transformers import AutoConfig, AutoModel, AutoTokenizer, BatchEncoding
+from tqdm import tqdm
+from transformers import (
+    AutoConfig,
+    AutoModel,
+    AutoTokenizer,
+    BatchEncoding,
+    DataCollatorWithPadding,
+)
 
 
 class SentenceEncoder:
@@ -18,7 +26,7 @@ class SentenceEncoder:
     def __init__(
         self,
         df: pd.DataFrame,
-        col_name_text: str,
+        feature_name: str,
         pre_computed_embeddings_file: Optional[str] = None,
         model_name: str = "all-MiniLM-L6-v2",
         model_modules: Optional[Iterable[nn.Module]] = None,
@@ -41,7 +49,7 @@ class SentenceEncoder:
         ----------
         df : pd.DataFrame
             Dataset as a pandas dataframe
-        col_name_text : str
+        feature_name : str
             Column name which has the text in
         pre_computed_embeddings_file : Optional[str], optional
             Path to pre-computed embeddings, by default None.
@@ -76,12 +84,12 @@ class SentenceEncoder:
         Raises
         ------
         KeyError
-            if `col_name_text` is not a column in df
+            if `feature_name` is not a column in df
         """
         self.df = df
-        if col_name_text not in df.columns:
-            raise KeyError(f"{col_name_text} is not a column in df")
-        self.col_name_text = col_name_text
+        if feature_name not in df.columns:
+            raise KeyError(f"{feature_name} is not a column in df")
+        self.feature_name = feature_name
         if pre_computed_embeddings_file is not None:
             with open(pre_computed_embeddings_file, "rb") as f:
                 self.sentence_embeddings = np.array(pickle.load(f))
@@ -205,7 +213,7 @@ class SentenceEncoder:
                 "Model is not loaded. Call either `.load_pretrained_model()` "
                 "or `.load_custom_model()` methods first"
             )
-        sentences = self.df[self.col_name_text].to_list()
+        sentences = self.df[self.feature_name].to_list()
         print(f"[INFO] number of sentences to encode: {len(sentences)}")
         self.sentence_embeddings = np.array(
             self.model.encode(sentences, **self.model_encoder_args)
@@ -249,17 +257,19 @@ class TextEncoder:
     def __init__(
         self,
         df: pd.DataFrame,
-        col_name_text: str,
+        feature_name: str,
+        full_dataset: Optional[Dataset] = None,
         model_name: str = "bert-base-uncased",
     ):
         """
-        Class to obtain token embeddings (and optionally pool them) using Huggingface transformers.
+        Class to obtain token embeddings (and optionally pool them)
+        using Huggingface transformers.
 
         Parameters
         ----------
         df : pd.DataFrame
             Dataset as a pandas dataframe
-        col_name_text : str
+        feature_name : str
             Column name which has the text in
         model_name : str, optional
             Name of transformer encoder model, by default "bert-base-uncased"
@@ -267,66 +277,105 @@ class TextEncoder:
         Raises
         ------
         KeyError
-            if `col_name_text` is not a column in df
+            if `feature_name` is not a column in df
         """
-        self.df = df
+        if df is not None:
+            # df is passed in, so create the Dataset object from the dataframe
+            # will override any Dataset that is passed in to ensure consistency
+            self.df = df
+            self.dataset = Dataset.from_pandas(df)
+            self._features = self.dataset.features.keys()
+        else:
+            # df is not passed in, must have Dataset passed into full_dataset
+            if isinstance(full_dataset, Dataset):
+                self.df = pd.DataFrame(full_dataset)
+                self.dataset = full_dataset
+                self._features = self.dataset.features.keys()
+            else:
+                raise ValueError(
+                    "if df is not passed in, then full_dataset "
+                    "must be a Dataset object"
+                )
+        if isinstance(feature_name, str):
+            # convert to list of one element
+            feature_name = [feature_name]
+        elif isinstance(feature_name, list):
+            # if feature_name is a list, it can only be of length 1
+            # (if only one column we want to process), or of length 2
+            # (if we have pairs of sentences to process)
+            if len(feature_name) not in [1, 2]:
+                raise ValueError(
+                    "if feature_name is a list, it must be " "a list of length 1 or 2"
+                )
+            for col in feature_name:
+                if col not in df.columns:
+                    raise KeyError(f"{col} is not a column in df")
+        else:
+            raise ValueError(
+                "if df is passed in, then feature_name "
+                "must either be a string, or a list of strings"
+            )
+        self.feature_name = feature_name
         self.tokenized_df = None
-        if col_name_text not in df.columns:
-            raise KeyError(f"{col_name_text} is not a column in df")
-        self.col_name_text = col_name_text
         self.token_embeddings = None
         self.pooled_embeddings = None
         self.model_name = model_name
         self.model = None
         self.config = None
         self.tokenizer = None
-        self.tokens = None
+        self.data_collator = None
         self.skip_special_tokens = None
-        self.special_tokens_mask = None
         self.text_id_col_name = None
 
     def load_pretrained_model(self, force_reload: bool = False) -> None:
         """
-        loads in config, tokenizer and pretrained weights
+        Loads in config, tokenizer and pretrained weights from transformers.
 
         Parameters
         ----------
         force_reload : bool, optional
-            Whether or not to overwrite current loaded model, by default False
+            Whether or not to overwrite current loaded model, by default False.
         """
         if (not force_reload) and (self.model is not None):
             print(f"[INFO] {self.model_name} model is already loaded")
             return
         self.config = AutoConfig.from_pretrained(self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.data_collator = DataCollatorWithPadding(self.tokenizer)
         self.model = AutoModel.from_pretrained(self.model_name)
         self.model.eval()
 
     def initialise_transformer(self, force_reload: bool = False, **config_args) -> None:
         """
-        loads in config and tokenizer. initialises the transformer with random weights
+        Loads in config and tokenizer. initialises the transformer with random weights
+        from transformers.
 
         Parameters
         ----------
         force_reload : bool, optional
-            Whether or not to overwrite current loaded model, by default False
+            Whether or not to overwrite current loaded model, by default False.
+        **cofig_args :
+            Passed along to `AutoConfig.from_pretrained()` method.
         """
         if (not force_reload) and (self.model is not None):
             print(f"[INFO] {self.model_name} model is already loaded")
             return
         self.config = AutoConfig.from_pretrained(self.model_name, **config_args)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
+        self.data_collator = DataCollatorWithPadding(self.tokenizer)
         self.model = AutoModel.from_config(self.config)
         self.model.eval()
 
     def tokenize_text(
         self,
-        text_id_col_name="text_id",
+        text_id_col_name: str = "text_id",
         skip_special_tokens: bool = True,
+        batched=True,
+        batch_size=1000,
         **tokenizer_args,
-    ) -> BatchEncoding:
+    ) -> Dataset:
         """
-        Method to tokenize each item in the `col_name_text` column of the dataframe.
+        Method to tokenize each item in the `feature_name` column of the dataframe.
 
         Will tokenize the text (which are then saved in `.tokens` attribute).
         The method will also create a new dataframe (and save it in `.tokenized_df` attribute)
@@ -343,7 +392,12 @@ class TextEncoder:
             Whether or not to skip special tokens added by the
             transformer tokenizer, by default True.
         **tokenizer_args
-            Passed along to the `.tokenizer()` method.
+            Passed along to the `.tokenizer()` method. By default, we pass the following
+            arguments:
+            - `padding` = False (as dynamic padding is used later)
+            - `truncation` = True
+            - `return_special_tokens_mask` = True
+            (this is always used and overrides user option if passed)
 
         Returns
         -------
@@ -356,6 +410,11 @@ class TextEncoder:
             if `text_id_column_name` is already a column name in `.df` dataframe.
             In this case, will need to pass in a different string.
         """
+        if self.model is None:
+            raise NotImplementedError(
+                "No model has been initialised yet. First call "
+                "`.load_pretrained_model()` or `.initialise_transformer()`."
+            )
         if text_id_col_name in self.df.columns:
             raise ValueError(
                 f"'{text_id_col_name}' is already a column name in the `.df` dataframe. "
@@ -365,64 +424,249 @@ class TextEncoder:
         # record whether or not special tokens to be skipped when obtaining the tokenized text
         self.skip_special_tokens = skip_special_tokens
         if not tokenizer_args:
-            tokenizer_args = {"padding": True, "truncation": True}
-        if tokenizer_args.get("return_tensors") != "pt":
-            print("setting return_tensors='pt'")
-            tokenizer_args["return_tensors"] = "pt"
+            # by default does not perform padding initially,
+            # as will utilise dynamic padding later on
+            tokenizer_args = {"padding": False, "truncation": True}
         if not tokenizer_args.get("return_special_tokens_mask"):
-            print("setting return_special_tokens_mask=True")
+            print("[INFO] Setting return_special_tokens_mask=True")
             tokenizer_args["return_special_tokens_mask"] = True
 
-        # tokenize text
-        self.tokens = self.tokenizer(
-            self.df[self.col_name_text].to_list(), **tokenizer_args
-        )
-        # save the special tokens mask
-        # used to appropriately slice the output when obtaining token embeddings
-        self.special_tokens_mask = self.tokens.data.pop("special_tokens_mask")
+        # define tokenize_function for mapping to Dataset object
+        if len(self.feature_name) == 1:
+            # we have just a list of sentences to tokenize
+            def tokenize_function(dataset):
+                return self.tokenizer(
+                    dataset[self.feature_name[0]],
+                    **tokenizer_args,
+                )
 
-        # convert the token_ids back to tokens and save to the `.df` dataframe
+        elif len(self.feature_name) == 2:
+            # we have pairs of sentences to tokenize
+            def tokenize_function(dataset):
+                return self.tokenizer(
+                    dataset[self.feature_name[0]],
+                    dataset[self.feature_name[1]],
+                    **tokenizer_args,
+                )
+
+        # tokenize the dataset and save the tokens in .tokens attribute
+        print("[INFO] Tokenizing the datatset...")
+        self.dataset = self.dataset.map(
+            tokenize_function,
+            batched=batched,
+            batch_size=batch_size,
+        )
+        self.tokens = self.dataset.remove_columns(self._features)
+
+        print(
+            "[INFO] Saving the tokenized text for each sentence into .df['tokens']..."
+        )
+        # save the tokenized text to `.df["tokens"] (does not include special tokens)
         self.df["tokens"] = [
             self.tokenizer.convert_ids_to_tokens(
                 self.tokens["input_ids"][i],
                 skip_special_tokens=self.skip_special_tokens,
             )
-            for i in range(len(self.df))
+            for i in tqdm(range(len(self.df)))
         ]
-        # if decided to skip special tokens, also convert back to tokens
-        # and include all the special tokens
-        if self.skip_special_tokens:
-            self.df["all_tokens"] = [
-                self.tokenizer.convert_ids_to_tokens(
-                    self.tokens["input_ids"][i], skip_special_tokens=False
-                )
-                for i in range(len(self.df))
-            ]
 
         # create new tokenized dataframe
         print(
             "[INFO] Creating tokenized dataframe and setting in .tokenized_df attribute"
         )
         self.tokenized_df = self.df.drop(
-            columns=[self.col_name_text, "all_tokens"],
+            columns=self.feature_name,
             errors="ignore",
         ).explode("tokens")
         self.tokenized_df = self.tokenized_df.reset_index()
         print(
-            f"'{text_id_col_name}' is the column name for denoting the corresponding text id"
+            f"[INFO] Note: '{text_id_col_name}' is the "
+            "column name for denoting the corresponding text id"
         )
         self.tokenized_df = self.tokenized_df.rename(
             columns={"index": text_id_col_name}
         )
         self.text_id_col_name = text_id_col_name
 
-        return self.tokens
+        return self.dataset
+
+    def _obtain_embeddings_for_batch(
+        self,
+        batch_tokens: BatchEncoding,
+        method: str,
+        layers: Optional[Union[int, List[int], Tuple[int]]],
+    ) -> Union[np.array, List[np.array]]:
+        """
+        For a given batch of tokens, `batch_tokens`, compute
+
+        Method passes in the tokens (in `batch_tokens`) through the
+        transformer model and obtains token embeddings by combining
+        the hidden layers in some way.
+        See `method` argument below for options.
+
+        Parameters
+        ----------
+        batch_tokens : BatchEncoding
+            Batch of tokens.
+        method : str
+            See overview of methods in `.obtain_embeddings()` method.
+        layers : Optional[Union[int, List[int], Tuple[int]]]
+            See description of layers in `.obtain_embeddings()` method.
+
+        Returns
+        -------
+        Union[np.array, List[np.array]]
+            Unless `method=hidden_layer` and `layers` is a list of integers, the
+            method returns a 2 dimensional array with dimensions [token, embedding],
+            i.e. the number of rows is the number of tokens in `.tokenized_df`,
+            and the number of columns is the dimension of the embeddings.
+
+            If `method=hidden_layer` and `layers` is a list of integers, the method
+            returns a list of 3 dimensional arrays with dimensions [layer, token, embedding].
+            Each item in the list is the output of the hidden layers requested for each
+            sentence, i.e. for each item, the first dimension denotes the layers
+            that was requested, the second dimension is the tokens
+            (as found in `.tokenized_df`) and the third dimension is the embeddings.
+            This option is added so that the user can combine the hidden layers
+            in some custom way.
+        """
+        # as the output of the transformer includes padded tokens or special tokens
+        # find indices of the tokens that we are interested
+        if self.skip_special_tokens:
+            # finds indices of non-special tokens
+            indices = [
+                torch.where(batch_tokens["special_tokens_mask"][i] == 0)[0]
+                for i in range(len(batch_tokens["input_ids"]))
+            ]
+        else:
+            # finds indices of non-pad tokens
+            indices = [
+                torch.where(batch_tokens["attention_mask"][i] == 1)[0]
+                for i in range(len(batch_tokens["input_ids"]))
+            ]
+
+        # remove "special_tokens_mask"
+        del batch_tokens["special_tokens_mask"]
+        # pass tokens through the model to obtain embeddings
+        with torch.no_grad():
+            outputs = self.model(
+                **batch_tokens,
+                output_hidden_states=True,
+            )
+            hidden_states = torch.stack(outputs["hidden_states"], dim=0)
+
+        # by default, we will concatenate the embeddings at the end unless we've requested to
+        # obtain hidden states from multiple layers (in which case they cannot be concatenated)
+        concatenate_embeddings = True
+        if method == "hidden_layer":
+            if layers is None:
+                # if not specified layers wanted, returns the second to last one
+                layers = hidden_states.shape[0] - 1
+            # only consider layers requested
+            if isinstance(layers, int):
+                if layers >= hidden_states.shape[0]:
+                    raise ValueError(
+                        f"requested layer ({layers}) is out of range: only have "
+                        f"{hidden_states.shape[0]} number of hidden layers"
+                    )
+                elif layers < 0:
+                    raise ValueError(
+                        f"requested layer ({layers}) is out of range: "
+                        "must be greater than or equal to 0, and we only have "
+                        f"{hidden_states.shape[0]} number of hidden layers"
+                    )
+                # only want one layer so hidden_states[layers] is tensor with
+                # [sentence, tokens, embeddings]
+                hidden_states = hidden_states[layers]
+                # obtain hidden layer for each item in the dataframe
+                token_embeddings = [
+                    hidden_states[i][indices[i], :]
+                    for i in range(len(batch_tokens["input_ids"]))
+                ]
+            else:
+                if any(
+                    [
+                        (layer < 0) or (layer >= hidden_states.shape[0])
+                        for layer in layers
+                    ]
+                ):
+                    raise ValueError(
+                        f"requested layers ({layers}) is out of range: only have "
+                        f"{hidden_states.shape[0]} number of hidden layers"
+                    )
+                # hidden_states[layers] is tensor with [layers, sentence, tokens, embeddings]
+                # change order of tensor to [sentence, layers, tokens, embeddings]
+                hidden_states = hidden_states[layers].permute(1, 0, 2, 3)
+                # obtain hidden layers for each item in the dataframe
+                token_embeddings = [
+                    hidden_states[i][:, indices[i], :].numpy()
+                    for i in range(len(batch_tokens["input_ids"]))
+                ]
+                concatenate_embeddings = False
+        elif method in ["concatenate", "sum", "mean"]:
+            if layers is None:
+                # if not specified layers wanted, concatenates last 4 hidden layers
+                # (if is possible to go 4 layers back, otherwise takes all the hidden states)
+                layers = [
+                    hidden_states.shape[0] - i
+                    for i in range(1, 5)
+                    if hidden_states.shape[0] - i >= 0
+                ]
+            if any(
+                [(layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers]
+            ):
+                raise ValueError(
+                    f"requested layers ({layers}) is out of range: only have "
+                    f"{hidden_states.shape[0]} number of hidden layers"
+                )
+            # hidden_states[layers] is tensor with [layers, sentence, tokens, embeddings]
+            # change order of tensor to [sentence, tokens, layers, embeddings]
+            hidden_states = hidden_states[layers].permute(1, 2, 0, 3)
+            if method == "concatenate":
+                token_embeddings = [
+                    torch.stack(
+                        [
+                            hidden_states[i][indices[i]][j].flatten()
+                            for j in range(len(indices[i]))
+                        ]
+                    )
+                    for i in range(len(batch_tokens["input_ids"]))
+                ]
+            elif method == "sum":
+                token_embeddings = [
+                    torch.stack(
+                        [
+                            hidden_states[i][indices[i]][j].sum(dim=0)
+                            for j in range(len(indices[i]))
+                        ]
+                    )
+                    for i in range(len(batch_tokens["input_ids"]))
+                ]
+            elif method == "mean":
+                token_embeddings = [
+                    torch.stack(
+                        [
+                            hidden_states[i][indices[i]][j].mean(dim=0)
+                            for j in range(len(indices[i]))
+                        ]
+                    )
+                    for i in range(len(batch_tokens["input_ids"]))
+                ]
+        else:
+            raise NotImplementedError(
+                f"method '{method}' for pooling hidden layers "
+                "to obtain token embeddings has not been implemented."
+            )
+        if concatenate_embeddings:
+            token_embeddings = torch.cat(token_embeddings).numpy()
+        return token_embeddings
 
     def obtain_embeddings(
         self,
         method: str = "hidden_layer",
+        batch_size: int = 1000,
         layers: Optional[Union[int, List[int], Tuple[int]]] = None,
-    ) -> np.array:
+    ) -> Union[np.array, List[np.array]]:
         """
         Once text has been tokenized (using `.tokenize_text`), can obtain token embeddings
         for each token in `.tokenized_df["tokens"]`.
@@ -475,17 +719,20 @@ class TextEncoder:
 
         Returns
         -------
-        np.array
+        Union[np.array, List[np.array]]
             Unless `method=hidden_layer` and `layers` is a list of integers, the
             method returns a 2 dimensional array with dimensions [token, embedding],
             i.e. the number of rows is the number of tokens in `.tokenized_df`,
             and the number of columns is the dimension of the embeddings.
+
             If `method=hidden_layer` and `layers` is a list of integers, the method
-            returns a 3 dimensional array with dimensions [layer, token, embedding],
-            i.e. the first dimension denotes the layers that was requested, the second
-            dimension is the tokens (as found in `.tokenized_df`) and the third
-            dimension is the embeddings. This option is added so that the user
-            can combine the hidden layers in some custom way.
+            returns a list of 3 dimensional arrays with dimensions [layer, token, embedding].
+            Each item in the list is the output of the hidden layers requested for each
+            sentence, i.e. for each item, the first dimension denotes the layers
+            that was requested, the second dimension is the tokens
+            (as found in `.tokenized_df`) and the third dimension is the embeddings.
+            This option is added so that the user can combine the hidden layers
+            in some custom way.
 
         Raises
         ------
@@ -509,129 +756,27 @@ class TextEncoder:
                 "layers requested must be either integer or list of integers."
             )
 
-        # as the output of the transformer includes padded tokens or special tokens
-        # find indices of the tokens that we are interested
-        if self.skip_special_tokens:
-            # finds indices of non-special tokens
-            indices = [
-                torch.where(self.special_tokens_mask[i] == 0)[0]
-                for i in range(len(self.df))
+        # obtain batches of the tokens using dynamic padding
+        data_loader = DataLoader(
+            self.tokens,
+            shuffle=False,
+            batch_size=batch_size,
+            collate_fn=self.data_collator,
+        )
+
+        self.token_embeddings = [
+            self._obtain_embeddings_for_batch(batch, method, layers)
+            for batch in tqdm(data_loader)
+        ]
+        if isinstance(self.token_embeddings[0], list):
+            # have a list of lists, need to flatten it
+            self.token_embeddings = [
+                item for sublist in self.token_embeddings for item in sublist
             ]
         else:
-            # finds indices of non-pad tokens
-            indices = [
-                torch.where(self.tokens["attention_mask"][i] == 1)[0]
-                for i in range(len(self.df))
-            ]
+            # have a list of numpy arrays which we can concatenate
+            self.token_embeddings = np.concatenate(self.token_embeddings)
 
-        # pass tokens through the model to obtain embeddings
-        with torch.no_grad():
-            outputs = self.model(**self.tokens, output_hidden_states=True)
-            hidden_states = torch.stack(outputs["hidden_states"], dim=0)
-
-        # by default, we will concatenate the embeddings at the end unless we've requested to
-        # obtain hidden states from multiple layers (in which case they cannot be concatenated)
-        concatenate_embeddings = True
-        if method == "hidden_layer":
-            if layers is None:
-                # if not specified layers wanted, returns the second to last one
-                layers = hidden_states.shape[0] - 1
-            # only consider layers requested
-            if isinstance(layers, int):
-                if layers >= hidden_states.shape[0]:
-                    raise ValueError(
-                        f"requested layer ({layers}) is out of range: only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
-                    )
-                elif layers < 0:
-                    raise ValueError(
-                        f"requested layer ({layers}) is out of range: "
-                        "must be greater than or equal to 0, and we only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
-                    )
-                # only want one layer so hidden_states[layers] is tensor with
-                # [batch, tokens, embeddings]
-                hidden_states = hidden_states[layers]
-                # obtain hidden layer for each item in the dataframe
-                self.token_embeddings = [
-                    hidden_states[i][indices[i], :] for i in range(len(self.df))
-                ]
-            else:
-                if any(
-                    [
-                        (layer < 0) or (layer >= hidden_states.shape[0])
-                        for layer in layers
-                    ]
-                ):
-                    raise ValueError(
-                        f"requested layers ({layers}) is out of range: only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
-                    )
-                # hidden_states[layers] is tensor with [layers, batch, tokens, embeddings]
-                # change order of tensor to [batch, layers, tokens, embeddings]
-                hidden_states = hidden_states[layers].permute(1, 0, 2, 3)
-                # obtain hidden layers for each item in the dataframe
-                self.token_embeddings = [
-                    hidden_states[i][:, indices[i], :].numpy()
-                    for i in range(len(self.df))
-                ]
-                concatenate_embeddings = False
-        elif method in ["concatenate", "sum", "mean"]:
-            if layers is None:
-                # if not specified layers wanted, concatenates last 4 hidden layers
-                # (if is possible to go 4 layers back, otherwise takes all the hidden states)
-                layers = [
-                    hidden_states.shape[0] - i
-                    for i in range(1, 5)
-                    if hidden_states.shape[0] - i >= 0
-                ]
-            if any(
-                [(layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers]
-            ):
-                raise ValueError(
-                    f"requested layers ({layers}) is out of range: only have "
-                    f"{hidden_states.shape[0]} number of hidden layers"
-                )
-            # hidden_states[layers] is tensor with [layers, batch, tokens, embeddings]
-            # change order of tensor to [batch, tokens, layers, embeddings]
-            hidden_states = hidden_states[layers].permute(1, 2, 0, 3)
-            if method == "concatenate":
-                self.token_embeddings = [
-                    torch.stack(
-                        [
-                            hidden_states[i][indices[i]][j].flatten()
-                            for j in range(len(indices[i]))
-                        ]
-                    )
-                    for i in range(len(self.df))
-                ]
-            elif method == "sum":
-                self.token_embeddings = [
-                    torch.stack(
-                        [
-                            hidden_states[i][indices[i]][j].sum(dim=0)
-                            for j in range(len(indices[i]))
-                        ]
-                    )
-                    for i in range(len(self.df))
-                ]
-            elif method == "mean":
-                self.token_embeddings = [
-                    torch.stack(
-                        [
-                            hidden_states[i][indices[i]][j].mean(dim=0)
-                            for j in range(len(indices[i]))
-                        ]
-                    )
-                    for i in range(len(self.df))
-                ]
-        else:
-            raise NotImplementedError(
-                f"method '{method}' for pooling hidden layers "
-                "to obtain token embeddings has not been implemented."
-            )
-        if concatenate_embeddings:
-            self.token_embeddings = torch.cat(self.token_embeddings).numpy()
         return self.token_embeddings
 
     def pool_token_embeddings(self, method: str = "mean") -> np.array:
@@ -689,10 +834,19 @@ class TextEncoder:
                 "Token embeddings have not been computed yet. "
                 "Call `.obtain_embeddings()` first."
             )
+        if isinstance(self.token_embeddings, list):
+            raise ValueError(
+                "The token embeddings (in `.token_embeddings`) is currently a list. "
+                "This might be because no pooling of the hidden states have been done "
+                "to obtain the embeddings for each token. "
+                "The token embeddings must be a numpy array with dimensions "
+                "[token, embedding] in order to pool them."
+            )
         if self.token_embeddings.ndim != 2:
             raise ValueError(
                 "The token embeddings (in `.token_embeddings`) must be a "
-                "numpy array with dimensions [token, embedding]."
+                "numpy array with dimensions [token, embedding] "
+                "in order to pool them."
             )
         if method == "mean":
             self.pooled_embeddings = [
@@ -701,7 +855,7 @@ class TextEncoder:
                         self.tokenized_df[self.text_id_col_name] == i
                     ]
                 ].mean(axis=0)
-                for i in range(len(self.df))
+                for i in tqdm(range(len(self.df)))
             ]
         elif method == "max":
             self.pooled_embeddings = [
@@ -710,7 +864,7 @@ class TextEncoder:
                         self.tokenized_df[self.text_id_col_name] == i
                     ]
                 ].max(axis=0)
-                for i in range(len(self.df))
+                for i in tqdm(range(len(self.df)))
             ]
         elif method == "sum":
             self.pooled_embeddings = [
@@ -719,7 +873,7 @@ class TextEncoder:
                         self.tokenized_df[self.text_id_col_name] == i
                     ]
                 ].sum(axis=0)
-                for i in range(len(self.df))
+                for i in tqdm(range(len(self.df)))
             ]
         elif method == "cls":
             if self.skip_special_tokens:
@@ -735,7 +889,7 @@ class TextEncoder:
                             self.tokenized_df[self.text_id_col_name] == i
                         ]
                     ][0]
-                    for i in range(len(self.df))
+                    for i in tqdm(range(len(self.df)))
                 ]
         else:
             raise NotImplementedError(

@@ -458,17 +458,28 @@ class TextEncoder:
         )
         self.tokens = self.dataset.remove_columns(self._features)
 
+        # save the tokenized text to `.df["tokens"] (does not include special tokens)
         print(
             "[INFO] Saving the tokenized text for each sentence into .df['tokens']..."
         )
-        # save the tokenized text to `.df["tokens"] (does not include special tokens)
-        self.df["tokens"] = [
-            self.tokenizer.convert_ids_to_tokens(
-                self.tokens["input_ids"][i],
-                skip_special_tokens=self.skip_special_tokens,
-            )
-            for i in tqdm(range(len(self.df)))
-        ]
+
+        def tokenize_decoder(dataset):
+            return {
+                "tokens": [
+                    self.tokenizer.convert_ids_to_tokens(
+                        dataset["input_ids"][i],
+                        skip_special_tokens=True,
+                    )
+                    for i in range(len(dataset["input_ids"]))
+                ]
+            }
+
+        self.dataset = self.dataset.map(
+            tokenize_decoder,
+            batched=batched,
+            batch_size=batch_size,
+        )
+        self.df["tokens"] = self.dataset["tokens"]
 
         # create new tokenized dataframe
         print(
@@ -497,7 +508,8 @@ class TextEncoder:
         layers: Optional[Union[int, List[int], Tuple[int]]],
     ) -> Union[np.array, List[np.array]]:
         """
-        For a given batch of tokens, `batch_tokens`, compute
+        [PRIVATE] For a given batch of tokens, `batch_tokens`,
+        compute token embeddings from hidden layers.
 
         Method passes in the tokens (in `batch_tokens`) through the
         transformer model and obtains token embeddings by combining

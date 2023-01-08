@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from datasets.arrow_dataset import Dataset
+from datasets.dataset_dict import DatasetDict
 from sentence_transformers import SentenceTransformer
 from torch import nn
 from torch.utils.data import DataLoader
@@ -15,6 +16,8 @@ from transformers import (
     AutoTokenizer,
     BatchEncoding,
     DataCollatorWithPadding,
+    Trainer,
+    TrainingArguments,
 )
 
 
@@ -284,13 +287,13 @@ class TextEncoder:
             # will override any Dataset that is passed in to ensure consistency
             self.df = df
             self.dataset = Dataset.from_pandas(df)
-            self._features = self.dataset.features.keys()
+            self._features = list(self.dataset.features.keys())
         else:
             # df is not passed in, must have Dataset passed into full_dataset
             if isinstance(full_dataset, Dataset):
                 self.df = pd.DataFrame(full_dataset)
                 self.dataset = full_dataset
-                self._features = self.dataset.features.keys()
+                self._features = list(self.dataset.features.keys())
             else:
                 raise ValueError(
                     "if df is not passed in, then full_dataset "
@@ -324,12 +327,22 @@ class TextEncoder:
         self.config = None
         self.tokenizer = None
         self.data_collator = None
+        self.training_args = None
+        self.trainer = None
+        self.dataset_split = None
         self.skip_special_tokens = None
         self.text_id_col_name = None
 
     def load_pretrained_model(self, force_reload: bool = False) -> None:
         """
-        Loads in config, tokenizer and pretrained weights from transformers.
+        Loads in config, tokenizer and pretrained weights from transformers,
+        using `AutoConfig`, `AutoTokenizer`, `AutoModel`.
+
+        If another model is required, e.g. model for masked language modelling,
+        then recommended to load the model using the appropriate class,
+        e.g. `AutoModelForMaskedLM()` to load in the model and reset
+        `.model` attribute to this object. This is required if
+        you wish to train / pre-train the model to the data later.
 
         Parameters
         ----------
@@ -342,6 +355,12 @@ class TextEncoder:
         self.config = AutoConfig.from_pretrained(self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.data_collator = DataCollatorWithPadding(self.tokenizer)
+        Warning(
+            "[INFO] By default, `.load_pretrained_model()` uses "
+            "`AutoModel` to load in the model. "
+            "If you want to load the model for a specific task, "
+            "reset the `.model` attribue."
+        )
         self.model = AutoModel.from_pretrained(self.model_name)
         self.model.eval()
 
@@ -370,8 +389,8 @@ class TextEncoder:
         self,
         text_id_col_name: str = "text_id",
         skip_special_tokens: bool = True,
-        batched=True,
-        batch_size=1000,
+        batched: bool = True,
+        batch_size: int = 1000,
         **tokenizer_args,
     ) -> Dataset:
         """
@@ -391,6 +410,10 @@ class TextEncoder:
         skip_special_tokens : bool, optional
             Whether or not to skip special tokens added by the
             transformer tokenizer, by default True.
+        batched : bool
+            Whether or not to tokenize the text in batches, by default True.
+        batch_size: int
+            The size of the batches (if used), by default 1000.
         **tokenizer_args
             Passed along to the `.tokenizer()` method. By default, we pass the following
             arguments:
@@ -460,19 +483,30 @@ class TextEncoder:
 
         # save the tokenized text to `.df["tokens"] (does not include special tokens)
         print(
-            "[INFO] Saving the tokenized text for each sentence into .df['tokens']..."
+            "[INFO] Saving the tokenized text for each sentence into `.df['tokens']`..."
         )
 
         def tokenize_decoder(dataset):
-            return {
-                "tokens": [
+            tokens = []
+            for i in range(len(dataset["input_ids"])):
+                # find the indices we're interested depending on whether or not we want to skip special tokens
+                if self.skip_special_tokens:
+                    ind = torch.where(
+                        torch.tensor(dataset["special_tokens_mask"][i]) == 0
+                    )[0].tolist()
+                else:
+                    ind = torch.where(torch.tensor(dataset["attention_mask"][i]) == 1)[
+                        0
+                    ].tolist()
+                # if no tokens (i.e. empty string), then just return the first embedding (CLS token)
+                if len(ind) == 0:
+                    ind = [0]
+                tokens.append(
                     self.tokenizer.convert_ids_to_tokens(
-                        dataset["input_ids"][i],
-                        skip_special_tokens=True,
+                        torch.tensor(dataset["input_ids"][i])[ind]
                     )
-                    for i in range(len(dataset["input_ids"]))
-                ]
-            }
+                )
+            return {"tokens": tokens}
 
         self.dataset = self.dataset.map(
             tokenize_decoder,
@@ -483,7 +517,7 @@ class TextEncoder:
 
         # create new tokenized dataframe
         print(
-            "[INFO] Creating tokenized dataframe and setting in .tokenized_df attribute"
+            "[INFO] Creating tokenized dataframe and setting in `.tokenized_df` attribute..."
         )
         self.tokenized_df = self.df.drop(
             columns=self.feature_name,
@@ -548,12 +582,16 @@ class TextEncoder:
             # finds indices of non-special tokens
             indices = [
                 torch.where(batch_tokens["special_tokens_mask"][i] == 0)[0]
+                if len(torch.where(batch_tokens["special_tokens_mask"][i] == 0)[0]) > 0
+                else [0]
                 for i in range(len(batch_tokens["input_ids"]))
             ]
         else:
             # finds indices of non-pad tokens
             indices = [
                 torch.where(batch_tokens["attention_mask"][i] == 1)[0]
+                if len(torch.where(batch_tokens["attention_mask"][i] == 1)[0]) > 0
+                else [0]
                 for i in range(len(batch_tokens["input_ids"]))
             ]
 
@@ -676,7 +714,7 @@ class TextEncoder:
     def obtain_embeddings(
         self,
         method: str = "hidden_layer",
-        batch_size: int = 1000,
+        batch_size: int = 100,
         layers: Optional[Union[int, List[int], Tuple[int]]] = None,
     ) -> Union[np.array, List[np.array]]:
         """
@@ -726,6 +764,8 @@ class TextEncoder:
                 - if `layers` is just an integer, token embedding will be taken as
                 is taken from the hidden state in layer number `layers`
                 (as mean of one layer hidden state is just that layer).
+        batch_size: int = 100
+            The size of the batches, by default 100.
         layer : Optional[Union[int, Iterable[int]]]
             The layers to use when combining the hidden states of the transformer.
 
@@ -910,7 +950,140 @@ class TextEncoder:
         self.pooled_embeddings = np.stack(self.pooled_embeddings)
         return self.pooled_embeddings
 
-    def fit_transformer(self):
-        """fit / fine-tune transformer model to some task"""
-        # TODO
-        pass
+    def split_dataset(
+        self, train_size: float = 0.8, valid_size: Optional[float] = 0.5
+    ) -> DatasetDict:
+        """
+        Split up dataset into train, validation, test sets for training / fine-tuning.
+
+        Parameters
+        ----------
+        train_size : float, optional
+            _description_, by default 0.8
+        valid_size : Optional[float], optional
+            _description_, by default 0.5
+
+        Returns
+        -------
+        DatasetDict
+            _description_
+        """
+        if valid_size is None:
+            print(
+                "[INFO] Splitting up dataset into train / test sets, "
+                "and saving to `.dataset_split`."
+            )
+        else:
+            print(
+                "[INFO] Splitting up dataset into train / validation / test sets, "
+                "and saving to `.dataset_split`."
+            )
+
+        # first split data into train set, test/valid set
+        train_testvalid = self.dataset.train_test_split(train_size=train_size)
+        if valid_size is not None:
+            # further split the test set into a test, valid set
+            test_valid = train_testvalid["test"].train_test_split(train_size=valid_size)
+            # gather everyone if you want to have a single DatasetDict
+            self.dataset_split = DatasetDict(
+                {
+                    "train": train_testvalid["train"],
+                    "test": test_valid["test"],
+                    "validation": test_valid["train"],
+                }
+            )
+        else:
+            self.dataset_split = DatasetDict(
+                {
+                    "train": train_testvalid["train"],
+                    "test": train_testvalid["test"],
+                    "validation": None,
+                }
+            )
+        return self.dataset_split
+
+    def set_up_training_args(self, output_dir, **kwargs) -> TrainingArguments:
+        """
+        Set up TrainingArguments object.
+
+        Parameters
+        ----------
+        output_dir : _type_
+            _description_
+        """
+        print(
+            "[INFO] Setting up TrainingArguments object and saving to `.training_args`."
+        )
+        if kwargs is None:
+            kwargs = {}
+        if "evaluation_strategy" not in kwargs:
+            kwargs["evaluation_strategy"] = "epoch"
+        self.training_args = TrainingArguments(output_dir=output_dir, **kwargs)
+        return self.training_args
+
+    def set_up_trainer(
+        self, data_collator=None, compute_metrics=None, **kwargs
+    ) -> Trainer:
+        print("[INFO] Setting up Trainer object, and saving to `.trainer`.")
+        if self.training_args is None:
+            raise NotImplementedError(
+                "TrainingArgments have not been set in `.training_args`. "
+                "Call `.set_up_training_args()` first."
+            )
+        if self.dataset_split is None:
+            raise ValueError(
+                "Dataset has not been split up into train / test (and validation) sets. "
+                "Call `.split_dataset()` first."
+            )
+        if data_collator is None:
+            # use the existing data collator
+            data_collator = self.data_collator
+        self.trainer = Trainer(
+            model=self.model,
+            args=self.training_args,
+            train_dataset=self.dataset_split["train"],
+            eval_dataset=self.dataset_split["validation"],
+            data_collator=data_collator,
+            tokenizer=self.tokenizer,
+            compute_metrics=compute_metrics,
+            **kwargs,
+        )
+        return self.trainer
+
+    def fit_transformer_with_trainer_api(
+        self,
+        output_dir=None,
+        data_collator=None,
+        compute_metrics=None,
+        training_args=None,
+        trainer_args=None,
+    ):
+        """
+        Train / fine-tune transformer model to some task.
+
+        Parameters
+        ----------
+        output_dir : _type_, optional
+            _description_, by default None
+        compute_metrics : _type_, optional
+            _description_, by default None
+        training_args : _type_, optional
+            _description_, by default None
+        trainer_args : _type_, optional
+            _description_, by default None
+        """
+        if output_dir is None:
+            output_dir = self.model_name
+        if self.dataset_split is None:
+            self.split_dataset()
+        if self.training_args is None:
+            self.set_up_training_args(output_dir=output_dir, **training_args)
+        if self.trainer is None:
+            self.set_up_trainer(
+                compute_metrics=compute_metrics,
+                data_collator=data_collator,
+                **trainer_args,
+            )
+        print("[INFO] Training model...")
+        self.trainer.train()
+        print("[INFO] Training completed.")

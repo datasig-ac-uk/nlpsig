@@ -1,5 +1,5 @@
 import pickle
-from typing import Iterable, List, Optional, Tuple, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -15,7 +15,12 @@ from transformers import (
     AutoModel,
     AutoTokenizer,
     BatchEncoding,
+    DataCollator,
     DataCollatorWithPadding,
+    EvalPrediction,
+    PretrainedConfig,
+    PreTrainedModel,
+    PreTrainedTokenizer,
     Trainer,
     TrainingArguments,
 )
@@ -30,7 +35,6 @@ class SentenceEncoder:
         self,
         df: pd.DataFrame,
         feature_name: str,
-        pre_computed_embeddings_file: Optional[str] = None,
         model_name: str = "all-MiniLM-L6-v2",
         model_modules: Optional[Iterable[nn.Module]] = None,
         model_encoder_args: dict = {
@@ -54,8 +58,6 @@ class SentenceEncoder:
             Dataset as a pandas dataframe
         feature_name : str
             Column name which has the text in
-        pre_computed_embeddings_file : Optional[str], optional
-            Path to pre-computed embeddings, by default None.
         model_name : str, optional
             Name of model to obtain sentence embeddings, by default "all-MiniLM-L6-v2".
             If loading a pretrained model using `.load_pretrained_model()` method,
@@ -68,14 +70,17 @@ class SentenceEncoder:
             See more pre-trained SentenceTransformer models at
             https://www.sbert.net/docs/pretrained_models.html.
         model_modules : Optional[Iterable[nn.Module]], optional
-            This parameter can be used to create custom SentenceTransformer models from scratch.
-            See https://www.sbert.net/docs/training/overview.html#creating-networks-from-scratch
+            This parameter can be used to create custom
+            SentenceTransformer models from scratch. See
+            https://www.sbert.net/docs/training/overview.html#creating-networks-from-scratch
             for examples.
             If creating a custom model using `.load_custom_model()` method,
-            passes this into the `modules` argument when initialising `SentenceTransformer` object
+            passes this into the `modules` argument when initialising
+            `SentenceTransformer` object.
         model_encoder_args : dict, optional
-            Any keywords to be passed in to the model, by default the
-            following arguments to pass into the `.encode()` method of SentenceTransformer class:
+            Any keywords to be passed into the model for encoding sentences,
+            by default the following arguments to pass into the
+            `.encode()` method of SentenceTransformer class:
             {"batch_size": 64,
              "show_progress_bar": True,
              "output_value": "sentence_embedding",
@@ -83,51 +88,69 @@ class SentenceEncoder:
              "convert_to_tensor": False,
              "device": None,
              "normalize_embeddings": False}
+        model_fit_args : dict, optional
+            Any keywords to be passed into the model to fine-tune sentence transformer,
+            by default
 
         Raises
         ------
         KeyError
-            if `feature_name` is not a column in df
+            if `feature_name` is not a column in df.
         """
         self.df = df
         if feature_name not in df.columns:
             raise KeyError(f"{feature_name} is not a column in df")
         self.feature_name = feature_name
-        if pre_computed_embeddings_file is not None:
-            with open(pre_computed_embeddings_file, "rb") as f:
-                self.sentence_embeddings = np.array(pickle.load(f))
-                if (self.sentence_embeddings.ndim != 2) or (
-                    self.sentence_embeddings.shape[0] != len(self.df)
-                ):
-                    raise ValueError(
-                        f"the loaded embeddings from {pre_computed_embeddings_file} "
-                        "must be a (n x d) array where n is the number of sentences "
-                        "and d is the dimension of the embeddings"
-                    )
-            self.model_name = "pre-computed"
-            self.model_modules = None
-            self.model_encoder_args = None
-            self.model_fit_args = None
-            self.model = "pre-computed"
-        else:
-            self.sentence_embeddings = None
-            self.model_name = model_name
-            self.model_modules = model_modules
-            self.model_encoder_args = model_encoder_args
-            self.model_fit_args = model_fit_args
-            self.model = None
+        self.sentence_embeddings = None
+        self.model_name = model_name
+        self.model_modules = model_modules
+        self.model_encoder_args = model_encoder_args
+        self.model_fit_args = model_fit_args
+        self.model = None
+
+    def load_pre_computed_embeddings(self, pre_computed_embeddings_file: str) -> None:
+        """
+        Loads in pre-computed sentence embeddings.
+
+        Parameters
+        ----------
+        pre_computed_embeddings_file : str
+            Path to pre-computed embeddings, by default None.
+
+        Raises
+        ------
+        ValueError
+            if the loaded embeddings is not a (n x d) array,
+            where n is the number of sentences (in `.df`)
+            and d is the dimension of the embeddings.
+        """
+        with open(pre_computed_embeddings_file, "rb") as f:
+            self.sentence_embeddings = np.array(pickle.load(f))
+            if (self.sentence_embeddings.ndim != 2) or (
+                self.sentence_embeddings.shape[0] != len(self.df)
+            ):
+                raise ValueError(
+                    f"the loaded embeddings from {pre_computed_embeddings_file} "
+                    "must be a (n x d) array where n is the number of sentences "
+                    "and d is the dimension of the embeddings"
+                )
+        self.model_name = "pre-computed"
+        self.model_modules = None
+        self.model_encoder_args = None
+        self.model_fit_args = None
+        self.model = "pre-computed"
 
     def load_pretrained_model(self, force_reload: bool = False) -> None:
         """
         Loads pre-trained model into `.model` by passing in `.model_name` to
-        the `model_name_or_path` argument when initialising `SentenceTransformer` object
+        the `model_name_or_path` argument when initialising `SentenceTransformer` object.
 
-        `.model_name` can also be path to a trained model
+        `.model_name` can also be path to a trained model.
 
         Parameters
         ----------
         force_reload : bool, optional
-            Whether or not to overwrite current loaded model, by default False
+            Whether or not to overwrite current loaded model, by default False.
 
         Raises
         ------
@@ -137,12 +160,12 @@ class SentenceEncoder:
             See https://www.sbert.net/docs/pretrained_models.html for examples.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] {self.model_name} model is already loaded")
+            print(f"[INFO] '{self.model_name}' model is already loaded")
             return
         if (force_reload) and (self.model == "pre-computed"):
             print(
-                "[INFO] the current embeddings were computed before "
-                + "and were loaded into this class"
+                "[INFO] The current embeddings were computed before "
+                "and were loaded into this class"
             )
             return
         try:
@@ -156,18 +179,18 @@ class SentenceEncoder:
     def load_custom_model(self, force_reload: bool = False) -> None:
         """
         Loads pre-trained model into `.model` by passing in `.model_name` to
-        the `modules` argument when initialising `SentenceTransformer` object
+        the `modules` argument when initialising `SentenceTransformer` object.
 
         Parameters
         ----------
         force_reload : bool, optional
-            Whether or not to overwrite current loaded model, by default False
+            Whether or not to overwrite current loaded model, by default False.
 
         Raises
         ------
         ValueError
             if there is nothing stored in `.model_modules` attribute to initialise
-            SentenceTransformer model
+            SentenceTransformer model.
         NotImplementedError
             if loading in a model using the modules in `.model_modules` was unsuccessful.
             This might happen if any of the items in `.model_modules` were not valid modules.
@@ -175,12 +198,12 @@ class SentenceEncoder:
             for examples.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] {self.model_name} model is already loaded")
+            print(f"[INFO] '{self.model_name}' model is already loaded")
             return
         if (force_reload) and (self.model == "pre-computed"):
             print(
-                "[INFO] the current embeddings were computed before "
-                + "and were loaded into this class"
+                "[INFO] The current embeddings were computed before "
+                "and were loaded into this class"
             )
             return
         if self.model_modules is None:
@@ -200,7 +223,7 @@ class SentenceEncoder:
 
     def obtain_embeddings(self) -> np.array:
         """
-        Obtains sentence embeddings (i.e. encodes sentences) via the `.encode` method,
+        Obtains sentence embeddings via the `.encode` method,
         and saves in `.embeddings_sentence` attribute.
 
         Passes in `.model_encoder_args` into `.encode` method too.
@@ -254,15 +277,20 @@ class SentenceEncoder:
 
 class TextEncoder:
     """
-    Class to obtain token embeddings (and optionally pool them) using Huggingface transformers.
+    Class to obtain token embeddings (and optionally pool them)
+    using Huggingface transformers.
     """
 
     def __init__(
         self,
-        df: pd.DataFrame,
         feature_name: str,
+        df: Optional[pd.DataFrame] = None,
         full_dataset: Optional[Dataset] = None,
-        model_name: str = "bert-base-uncased",
+        model_name: Optional[str] = None,
+        model: Optional[PreTrainedModel] = None,
+        config: Optional[PretrainedConfig] = None,
+        tokenizer: Optional[PreTrainedTokenizer] = None,
+        data_collator: Optional[DataCollator] = None,
     ):
         """
         Class to obtain token embeddings (and optionally pool them)
@@ -270,34 +298,44 @@ class TextEncoder:
 
         Parameters
         ----------
-        df : pd.DataFrame
-            Dataset as a pandas dataframe
+
         feature_name : str
             Column name which has the text in
-        model_name : str, optional
-            Name of transformer encoder model, by default "bert-base-uncased"
-
-        Raises
-        ------
-        KeyError
-            if `feature_name` is not a column in df
+        df : Optional[pd.DataFrame], optional
+            Dataset as a pandas dataframe, by default None.
+            If `df` is not provided, `full_dataset` must be provided.
+            A dataframe will then be created from it.
+        full_dataset : Optional[Dataset], optional
+            Huggingface Dataset object for the full dataset, by default None.
+            If `df` is a dataframe, a Dataset will be created from it,
+            even if `full_dataset` is provided.
+        model_name : Optional[str], optional
+            Name of transformer encoder model from Huggingface Hub, by default None.
+            To be used if want to load in a pretrained model.
+        model : Optional[PreTrainedModel], optional
+            Huggingface transformer model class, by default None.
+        config : Optional[PretrainedConfig], optional
+            Huggingface configuration class, by default None.
+        tokenizer : Optional[PreTrainedTokenizer], optional
+            Huggingface tokenizer class, by default None.
+        data_collator : Optional[Union[DefaultDataCollator, DataCollatorWithPadding]], optional
+            Data collator to use, by default None.
+            Should work with the tokenizer that is passed in.
         """
         if df is not None:
             # df is passed in, so create the Dataset object from the dataframe
             # will override any Dataset that is passed in to ensure consistency
-            self.df = df
-            self.dataset = Dataset.from_pandas(df)
-            self._features = list(self.dataset.features.keys())
+            self.df: pd.DataFrame = df
+            self.dataset: Dataset = Dataset.from_pandas(df)
         else:
             # df is not passed in, must have Dataset passed into full_dataset
             if isinstance(full_dataset, Dataset):
-                self.df = pd.DataFrame(full_dataset)
-                self.dataset = full_dataset
-                self._features = list(self.dataset.features.keys())
+                self.df: pd.DataFrame = pd.DataFrame(full_dataset)
+                self.dataset: Dataset = full_dataset
             else:
-                raise ValueError(
-                    "if df is not passed in, then full_dataset "
-                    "must be a Dataset object"
+                raise TypeError(
+                    "If `df` is not passed in, then `full_dataset` "
+                    "must be a Dataset object."
                 )
         if isinstance(feature_name, str):
             # convert to list of one element
@@ -308,25 +346,26 @@ class TextEncoder:
             # (if we have pairs of sentences to process)
             if len(feature_name) not in [1, 2]:
                 raise ValueError(
-                    "if feature_name is a list, it must be " "a list of length 1 or 2"
+                    "If `feature_name` is a list, it must be a list of length 1 or 2."
                 )
             for col in feature_name:
                 if col not in df.columns:
-                    raise KeyError(f"{col} is not a column in df")
+                    raise KeyError(f"'{col}' is not a column in `df`.")
         else:
             raise ValueError(
-                "if df is passed in, then feature_name "
-                "must either be a string, or a list of strings"
+                "if `df` is passed in, then `feature_name` "
+                "must either be a string, or a list of strings."
             )
+        self._features = list(self.dataset.features.keys())
         self.feature_name = feature_name
         self.tokenized_df = None
         self.token_embeddings = None
         self.pooled_embeddings = None
         self.model_name = model_name
-        self.model = None
-        self.config = None
-        self.tokenizer = None
-        self.data_collator = None
+        self.model = model
+        self.config = config
+        self.tokenizer = tokenizer
+        self.data_collator = data_collator
         self.training_args = None
         self.trainer = None
         self.dataset_split = None
@@ -350,8 +389,10 @@ class TextEncoder:
             Whether or not to overwrite current loaded model, by default False.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] {self.model_name} model is already loaded")
+            print(f"[INFO] '{self.model_name}' model is already loaded.")
             return
+        if self.model_name is None:
+            raise TypeError("")
         self.config = AutoConfig.from_pretrained(self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.data_collator = DataCollatorWithPadding(self.tokenizer)
@@ -373,17 +414,45 @@ class TextEncoder:
         ----------
         force_reload : bool, optional
             Whether or not to overwrite current loaded model, by default False.
-        **cofig_args :
+        **config_args :
             Passed along to `AutoConfig.from_pretrained()` method.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] {self.model_name} model is already loaded")
+            print(f"[INFO] '{self.model_name}' model is already loaded.")
             return
+        if self.model_name is None:
+            raise TypeError("")
         self.config = AutoConfig.from_pretrained(self.model_name, **config_args)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.data_collator = DataCollatorWithPadding(self.tokenizer)
+        Warning(
+            "[INFO] By default, `.initialise_transformer()` uses "
+            "`AutoModel` to load in the model. "
+            "If you want to load the model for a specific task, "
+            "reset the `.model` attribue."
+        )
         self.model = AutoModel.from_config(self.config)
         self.model.eval()
+
+    def _check_model(self) -> None:
+        if self.model is None:
+            raise NotImplementedError(
+                "No model has been initialised yet. First pass in a model "
+                "into the `.model` attribute, or call "
+                "`.load_pretrained_model()` or `.initialise_transformer()`."
+            )
+        elif self.tokenizer is None:
+            raise NotImplementedError(
+                "No tokenizer has been initialised yet. First pass in a tokenizer "
+                "into the `.tokenizer` attribute, or call "
+                "`.load_pretrained_model()` or `.initialise_transformer()`."
+            )
+        elif self.data_collator is None:
+            raise NotImplementedError(
+                "No data collator has been initialised yet. First pass in a data collator "
+                "into the `.data_collator` attribute, or call "
+                "`.load_pretrained_model()` or `.initialise_transformer()`."
+            )
 
     def tokenize_text(
         self,
@@ -433,11 +502,9 @@ class TextEncoder:
             if `text_id_column_name` is already a column name in `.df` dataframe.
             In this case, will need to pass in a different string.
         """
-        if self.model is None:
-            raise NotImplementedError(
-                "No model has been initialised yet. First call "
-                "`.load_pretrained_model()` or `.initialise_transformer()`."
-            )
+        # check model, tokenizer and data_collator have been passed into the class
+        self._check_model()
+
         if text_id_col_name in self.df.columns:
             raise ValueError(
                 f"'{text_id_col_name}' is already a column name in the `.df` dataframe. "
@@ -542,7 +609,7 @@ class TextEncoder:
         layers: Optional[Union[int, List[int], Tuple[int]]],
     ) -> Union[np.array, List[np.array]]:
         """
-        [PRIVATE] For a given batch of tokens, `batch_tokens`,
+        [Private] For a given batch of tokens, `batch_tokens`,
         compute token embeddings from hidden layers.
 
         Method passes in the tokens (in `batch_tokens`) through the
@@ -610,20 +677,20 @@ class TextEncoder:
         concatenate_embeddings = True
         if method == "hidden_layer":
             if layers is None:
-                # if not specified layers wanted, returns the second to last one
+                # if not specified layers wanted, returns the last hidden layer
                 layers = hidden_states.shape[0] - 1
             # only consider layers requested
             if isinstance(layers, int):
                 if layers >= hidden_states.shape[0]:
                     raise ValueError(
-                        f"requested layer ({layers}) is out of range: only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
+                        f"Requested layer ({layers}) is out of range: only have "
+                        f"{hidden_states.shape[0]} number of hidden layers."
                     )
                 elif layers < 0:
                     raise ValueError(
-                        f"requested layer ({layers}) is out of range: "
+                        f"Requested layer ({layers}) is out of range: "
                         "must be greater than or equal to 0, and we only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
+                        f"{hidden_states.shape[0]} number of hidden layers."
                     )
                 # only want one layer so hidden_states[layers] is tensor with
                 # [sentence, tokens, embeddings]
@@ -641,8 +708,8 @@ class TextEncoder:
                     ]
                 ):
                     raise ValueError(
-                        f"requested layers ({layers}) is out of range: only have "
-                        f"{hidden_states.shape[0]} number of hidden layers"
+                        f"Requested layers ({layers}) is out of range: only have "
+                        f"{hidden_states.shape[0]} number of hidden layers."
                     )
                 # hidden_states[layers] is tensor with [layers, sentence, tokens, embeddings]
                 # change order of tensor to [sentence, layers, tokens, embeddings]
@@ -666,8 +733,8 @@ class TextEncoder:
                 [(layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers]
             ):
                 raise ValueError(
-                    f"requested layers ({layers}) is out of range: only have "
-                    f"{hidden_states.shape[0]} number of hidden layers"
+                    f"Requested layers ({layers}) is out of range: only have "
+                    f"{hidden_states.shape[0]} number of hidden layers."
                 )
             # hidden_states[layers] is tensor with [layers, sentence, tokens, embeddings]
             # change order of tensor to [sentence, tokens, layers, embeddings]
@@ -704,7 +771,7 @@ class TextEncoder:
                 ]
         else:
             raise NotImplementedError(
-                f"method '{method}' for pooling hidden layers "
+                f"Method '{method}' for pooling hidden layers "
                 "to obtain token embeddings has not been implemented."
             )
         if concatenate_embeddings:
@@ -799,13 +866,15 @@ class TextEncoder:
         NotImplementedError
             if requested `method` is not one of "hidden_layer", "concatenate", "sum" or "mean".
         """
+        # check model, tokenizer and data_collator have been passed into the class
+        self._check_model()
         if self.tokens is None:
             raise ValueError(
                 "Text has not been tokenized yet. Call `.tokenize_text()` first."
             )
         if (layers is not None) and (not isinstance(layers, (int, list, tuple))):
             raise ValueError(
-                "layers requested must be either integer or list of integers."
+                "Layers requested must be either integer or list of integers."
             )
 
         # obtain batches of the tokens using dynamic padding
@@ -881,6 +950,8 @@ class TextEncoder:
         NotImplementedError
             if requested `method` is not one of "mean", "max", "sum" or "cls".
         """
+        # check model, tokenizer and data_collator have been passed into the class
+        self._check_model()
         if self.token_embeddings is None:
             raise ValueError(
                 "Token embeddings have not been computed yet. "
@@ -959,14 +1030,18 @@ class TextEncoder:
         Parameters
         ----------
         train_size : float, optional
-            _description_, by default 0.8
+            How to split the initial dataset into train, test/validation, by default 0.8.
         valid_size : Optional[float], optional
-            _description_, by default 0.5
+            How to split the remaining dataset after the first split, by default 0.5.
+            For example, if the size of the dataset is N=100, and we have `train_size=0.8`,
+            `valid_size=0.5`, the training set will have 80 samples, the validation set
+            will have 10 samples and the test set will have 10 samples.
 
         Returns
         -------
         DatasetDict
-            _description_
+            A dictionary of Datasets with training (`train`), validation (`valid`)
+            (if `valid_size` is not None), and test (`test`) Datasets.
         """
         if valid_size is None:
             print(
@@ -1002,14 +1077,21 @@ class TextEncoder:
             )
         return self.dataset_split
 
-    def set_up_training_args(self, output_dir, **kwargs) -> TrainingArguments:
+    def set_up_training_args(self, output_dir: str, **kwargs) -> TrainingArguments:
         """
-        Set up TrainingArguments object.
+        Set up `TrainingArguments` object and save to `.trainer` attribute.
 
         Parameters
         ----------
-        output_dir : _type_
-            _description_
+        output_dir : str
+            The output directory where the model predictions and checkpoints will be written.
+        **kwargs :
+            Passed along to `TrainingArguments()` class.
+
+        Returns
+        -------
+        TrainingArguments
+            `TrainingArguments` object.
         """
         print(
             "[INFO] Setting up TrainingArguments object and saving to `.training_args`."
@@ -1022,8 +1104,35 @@ class TextEncoder:
         return self.training_args
 
     def set_up_trainer(
-        self, data_collator=None, compute_metrics=None, **kwargs
+        self,
+        data_collator: Optional[DataCollator] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        **kwargs,
     ) -> Trainer:
+        """
+        Set up `Trainer` object and save to `.trainer` attribute.
+
+        Parameters
+        ----------
+        data_collator : Optional[DataCollator], optional
+            The function to use to form a batch from a list of elements
+            of `train_dataset` or `eval_dataset`, to pass into `Trainer()`,
+            by default None.
+        compute_metrics : Optional[Callable[[EvalPrediction], Dict]], optional
+            The function that will be used to compute metrics at evaluation.
+            Must take a `EvalPrediction` object and return a dictionary
+            string to metric values, by default None.
+        **kwargs :
+            Passed along to `Trainer()` class, by default None.
+
+        Returns
+        -------
+        Trainer
+            `Trainer` object.
+        """
+        # check model, tokenizer and data_collator have been passed into the class
+        self._check_model()
+
         print("[INFO] Setting up Trainer object, and saving to `.trainer`.")
         if self.training_args is None:
             raise NotImplementedError(
@@ -1052,38 +1161,50 @@ class TextEncoder:
 
     def fit_transformer_with_trainer_api(
         self,
-        output_dir=None,
-        data_collator=None,
-        compute_metrics=None,
-        training_args=None,
-        trainer_args=None,
+        output_dir: Optional[str] = None,
+        data_collator: Optional[DataCollator] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        training_args: Optional[Dict] = None,
+        trainer_args: Optional[Dict] = None,
     ):
         """
         Train / fine-tune transformer model to some task.
 
+        If the dataset hasn't been split up, or either of the training arguments
+        or trainer hasn't been set up, can pass in arguments to do that here.
+        Otherwise uses the split dataset, training arguments and trainer saved in
+        `.dataset_split`, `.training_args` and `.trainer`, repsectively.
+
         Parameters
         ----------
-        output_dir : _type_, optional
-            _description_, by default None
-        compute_metrics : _type_, optional
-            _description_, by default None
-        training_args : _type_, optional
-            _description_, by default None
-        trainer_args : _type_, optional
-            _description_, by default None
+        output_dir : str
+            The output directory where the model predictions
+            and checkpoints will be written, by default None.
+        data_collator : Optional[DataCollator], optional
+            The function to use to form a batch from a list of elements
+            of `train_dataset` or `eval_dataset`, to pass into `Trainer()`,
+            by default None.
+        compute_metrics : Optional[Callable[[EvalPrediction], Dict]], optional
+            The function that will be used to compute metrics at evaluation.
+            Must take a `EvalPrediction` object and return a dictionary
+            string to metric values, by default None.
+        training_args : Optional[Dict], optional
+            Passed along to `TrainingArguments()` class, by default None.
+        trainer_args : Optional[Dict], optional
+            Passed along to `Trainer()` class, by default None.
         """
-        if output_dir is None:
-            output_dir = self.model_name
         if self.dataset_split is None:
             self.split_dataset()
         if self.training_args is None:
+            if output_dir is None:
+                output_dir = self.model_name
             self.set_up_training_args(output_dir=output_dir, **training_args)
         if self.trainer is None:
             self.set_up_trainer(
-                compute_metrics=compute_metrics,
                 data_collator=data_collator,
+                compute_metrics=compute_metrics,
                 **trainer_args,
             )
-        print("[INFO] Training model...")
+        print(f"[INFO] Training model with {self.model.num_parameters()} parameters...")
         self.trainer.train()
-        print("[INFO] Training completed.")
+        print("[INFO] Training completed!")

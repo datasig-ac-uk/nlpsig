@@ -101,8 +101,8 @@ class Folds:
         self,
         fold_index: int,
         dev_size: float = 0.33,
-        as_DataLoader=False,
-        data_loader_args: dict = {"batch_size": 1, "shuffle": True},
+        as_DataLoader: bool = False,
+        data_loader_args: dict = {"batch_size": 64, "shuffle": True},
     ) -> Union[
         Tuple[DataLoader, DataLoader, DataLoader],
         Tuple[
@@ -129,7 +129,7 @@ class Folds:
         data_loader_args : _type_, optional
             Any keywords to be passed in obtaining the
             `torch.utils.data.dataloader.DataLoader` object,
-            by default {"batch_size": 1, "shuffle": True}
+            by default {"batch_size": 64, "shuffle": True}
 
         Returns
         -------

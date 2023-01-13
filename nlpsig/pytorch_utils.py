@@ -10,7 +10,7 @@ from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
 from nlpsig.classification_utils import Folds, set_seed
-from nlpsig.focal_loss import FocalLoss
+from nlpsig.focal_loss import ClassBalanced_FocalLoss, FocalLoss
 
 
 def validation_pytorch(
@@ -221,7 +221,7 @@ def KFold_pytorch(
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
-    patience: Optional[int] = 3,
+    patience: Optional[int] = 10,
     verbose_args: dict = {
         "verbose": True,
         "verbose_epoch": 100,
@@ -246,7 +246,7 @@ def KFold_pytorch(
     seed : Optional[int], optional
         Seed number, by default 42
     patience : Optional[int], optional
-        Patience parameter for early stopping rule, by default 3
+        Patience parameter for early stopping rule, by default 10
     verbose_args : _type_, optional
         Arguments for how to print progress, by default
         {"verbose": True,
@@ -280,7 +280,10 @@ def KFold_pytorch(
         criterion = checkpoint["criterion"]
         if isinstance(criterion, FocalLoss):
             y_train = folds.get_splits(fold_index=fold)[5]
-            criterion.set_alpha_from_y(y=torch.tensor(y_train))
+            criterion.set_alpha_from_y(y=y_train)
+        elif isinstance(criterion, ClassBalanced_FocalLoss):
+            y_train = folds.get_splits(fold_index=fold)[5]
+            criterion.set_samples_per_cls_from_y(y=y_train)
 
         # obtain test, valid and test dataloaders
         train, valid, test = folds.get_splits(fold_index=fold, as_DataLoader=True)

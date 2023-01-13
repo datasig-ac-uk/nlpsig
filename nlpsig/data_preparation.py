@@ -219,7 +219,7 @@ class PrepareData:
             # calculate time difference between posts
             print("[INFO] Adding 'time_diff' and feature...")
             self.df["time_diff"] = list(
-                self.df.groupby("timeline_id")
+                self.df.groupby(self.id_column)
                 .apply(
                     lambda x: [0.0]
                     + [
@@ -357,6 +357,7 @@ class PrepareData:
         colnames: List[str],
         time_feature: List[str],
         id: int,
+        pad_from_below: bool,
     ) -> pd.DataFrame:
         """
         [Private] If `padding_n > 0`, we pad `padding_n` number of entries
@@ -382,6 +383,8 @@ class PrepareData:
             List of time feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
+        pad_from_below: bool
+            If True, will pad the path from below, otherwise pads the path from above.
 
         Returns
         -------
@@ -419,19 +422,22 @@ class PrepareData:
                         **{c: [0] for c in colnames},
                         **{self.id_column: [id]},
                     }
+                pad = pd.DataFrame(data_dict)
+            else:
+                # pad by repeating the latest text
+                pad = df[columns].tail(1)
+            if pad_from_below:
                 df_padded = pd.concat(
                     [
-                        pd.concat([pd.DataFrame(data_dict)] * padding_n),
                         df[columns],
+                        pd.concat([pad] * padding_n),
                     ]
                 )
             else:
-                # pad by repeating the latest text
-                latest_text = df[columns].tail(1)
                 df_padded = pd.concat(
                     [
+                        pd.concat([pad] * padding_n),
                         df[columns],
-                        pd.concat([latest_text] * padding_n),
                     ]
                 )
             return df_padded.reset_index(drop=True)
@@ -450,6 +456,7 @@ class PrepareData:
         id_counts: pd.Series,
         id: int,
         time_feature: List[str],
+        pad_from_below: bool,
     ) -> pd.DataFrame:
         """
         [Private] For a given id, the function slices the dataframe in .df
@@ -476,6 +483,8 @@ class PrepareData:
             Which id are we padding.
         time_feature : List[str]
             List of time feature column names that we wish to keep from the dataframe.
+        pad_from_below: bool
+            If True, will pad the path from below, otherwise pads the path from above.
 
         Returns
         -------
@@ -499,6 +508,7 @@ class PrepareData:
             colnames=colnames,
             time_feature=time_feature,
             id=id,
+            pad_from_below=pad_from_below,
         )
 
     def _pad_history(
@@ -509,6 +519,7 @@ class PrepareData:
         index: int,
         time_feature: List[str],
         include_current_embedding: bool,
+        pad_from_below: bool,
     ) -> pd.DataFrame:
         """
         [Private]
@@ -526,6 +537,8 @@ class PrepareData:
             Which index of the dataframe are we padding.
         time_feature : List[str]
             List of time feature column names that we wish to keep from the dataframe.
+        pad_from_below: bool
+            If True, will pad the path from below, otherwise pads the path from above.
 
         Returns
         -------
@@ -568,6 +581,7 @@ class PrepareData:
             colnames=colnames,
             time_feature=time_feature,
             id=id,
+            pad_from_below=pad_from_below,
         )
 
     def pad(
@@ -580,7 +594,8 @@ class PrepareData:
         standardise_time_feature: bool = True,
         standardise_method: str = "standardise",
         embeddings: str = "full",
-        include_current_embedding: bool = False,
+        include_current_embedding: bool = True,
+        pad_from_below: bool = True,
     ) -> np.array:
         """
         Creates an array which stores the path.
@@ -625,8 +640,11 @@ class PrepareData:
             - "both": keeps both dimension reduced and full embeddings
         include_current_embedding : bool, optional
             If `pad_by="history", this determines whether or not the embedding for the
-            text is included in it's history, by default False. If `pad_by="id"`,
+            text is included in it's history, by default True. If `pad_by="id"`,
             this argument is ignored.
+        pad_from_below: bool, optional
+            If True, will pad the path from below, otherwise pads the path from above,
+            by default True.
 
         Returns
         -------
@@ -671,6 +689,7 @@ class PrepareData:
                     id_counts=id_counts,
                     id=id,
                     time_feature=time_feature_colnames,
+                    pad_from_below=pad_from_below,
                 )
                 for id in tqdm(id_counts.index)
             ]
@@ -695,6 +714,7 @@ class PrepareData:
                     index=index,
                     time_feature=time_feature_colnames,
                     include_current_embedding=include_current_embedding,
+                    pad_from_below=pad_from_below,
                 )
                 for index in tqdm(range(len(self.df)))
             ]
@@ -805,7 +825,7 @@ class PrepareData:
 
     def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
         """
-        Returns a `torch.tensor` object of the the embeddings.
+        Returns a `torch.tensor` object of the embeddings.
 
         Parameters
         ----------

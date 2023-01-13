@@ -1,5 +1,5 @@
 import math
-from typing import Union
+from typing import List, Optional, Union
 
 import numpy as np
 import torch
@@ -18,7 +18,7 @@ class FocalLoss(nn.Module):
     def __init__(
         self,
         gamma: float = 0.0,
-        alpha: Union[float, list] = None,
+        alpha: Optional[Union[float, list]] = None,
         size_average: bool = True,
     ):
         super(FocalLoss, self).__init__()
@@ -68,14 +68,24 @@ class ClassBalanced_FocalLoss(nn.Module):
     source: https://github.com/vandit15/Class-balanced-loss-pytorch
     """
 
-    def __init__(self, gamma, beta, no_of_classes, samples_per_cls):
+    def __init__(
+        self,
+        gamma: float,
+        beta: float,
+        no_of_classes: int,
+        samples_per_cls: Optional[List] = None,
+    ):
         super(ClassBalanced_FocalLoss, self).__init__()
         self.gamma = gamma
         self.beta = beta
         self.no_of_classes = no_of_classes
         self.samples_per_cls = samples_per_cls
 
-    def forward(self, logits, labels):
+    def set_samples_per_cls_from_y(self, y: torch.Tensor):
+        y_list = y.tolist()
+        self.samples_per_cls = torch.Tensor([y_list.count(i) for i in set(y_list)])
+
+    def forward(self, logits: torch.Tensor, labels: torch.Tensor):
         """Compute the Class Balanced Loss between `logits` and the ground truth `labels`.
         Class Balanced Loss: ((1-beta)/(1-beta^n))*Loss(labels, logits)
         where Loss is one of the standard losses used for Neural Networks.
@@ -106,7 +116,9 @@ class ClassBalanced_FocalLoss(nn.Module):
         cb_loss = self.focal_loss(labels_one_hot, logits, weights)
         return cb_loss
 
-    def focal_loss(self, labels, logits, alpha):
+    def focal_loss(
+        self, labels: torch.Tensor, logits: torch.Tensor, alpha: torch.Tensor
+    ):
         """Compute the focal loss between `logits` and the ground truth `labels`.
         Focal loss = -alpha_t * (1-pt)^gamma * log(pt)
         where pt is the probability of being classified to the true class.

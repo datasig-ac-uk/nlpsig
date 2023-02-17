@@ -86,7 +86,7 @@ def training_pytorch(
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
-    patience: Optional[int] = 3,
+    patience: Optional[int] = 10,
     verbose: bool = False,
     verbose_epoch: int = 100,
     verbose_item: int = 1000,
@@ -112,7 +112,7 @@ def training_pytorch(
     seed : Optional[int], optional
         Seed number, by default 42
     patience : Optional[int], optional
-        Patience parameter for early stopping rule, by default 3
+        Patience parameter for early stopping rule, by default 10
     verbose : bool, optional
         Whether or not to print progress, by default False
     verbose_epoch : int, optional
@@ -211,6 +211,10 @@ def testing_pytorch(
             labels_all = torch.cat([labels_all, labels_t])
             predicted_all = torch.cat([predicted_all, predicted_t])
 
+    print(
+        f"Accuracy on dataset of size {len(labels_all)}: "
+        "{100 * sum(labels_all==predicted_all) / len(labels_all)} %."
+    )
     return predicted_all, labels_all
 
 

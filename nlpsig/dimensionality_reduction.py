@@ -25,11 +25,17 @@ class DimReduce:
         method : str, optional
             Which dimensionality reduction technique to use, by default "ppapca"
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
+              (see Mu, J., Bhat, S., and Viswanath, P. (2017). All-but-the-top:
+              Simple and effective postprocessing for word representations.
+              arXiv preprint arXiv:1702.01417.)
             - "ppapacppa" (PPA-PCA-PPA)
+              (see Raunak, V., Gupta, V., and Metze, F. (2019). Effective dimensionality
+              reduction for word embeddings. In Proceedings of the 4th Workshop on
+              Representation Learning for NLP (RepL4NLP- 2019), pages 235-243.)
         n_components : int, optional
             Number of n_components to keep, by default 5
         dim_reduction_kwargs : Optional[dict], optional

@@ -1,14 +1,19 @@
 import random
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import torch
-from sklearn.model_selection import GroupKFold, GroupShuffleSplit, train_test_split
+from sklearn.model_selection import (
+    GroupKFold,
+    GroupShuffleSplit,
+    KFold,
+    train_test_split,
+)
 from torch.utils.data import TensorDataset
 from torch.utils.data.dataloader import DataLoader
 
 
-class GroupFolds:
+class Folds:
     """
     Class to split the data into different folds based on groups
     """
@@ -17,7 +22,7 @@ class GroupFolds:
         self,
         x_data: torch.Tensor,
         y_data: torch.Tensor,
-        groups: torch.Tensor,
+        groups: Optional[torch.Tensor] = None,
         n_splits: int = 5,
         shuffle: bool = False,
         random_state: int = 42,
@@ -31,8 +36,10 @@ class GroupFolds:
             Features for prediction
         y_data : torch.Tensor
             Variable to predict
-        groups : torch.Tensor
-            Groups
+        groups : Optional[torch.Tensor]
+            Groups to split by, default None. If None is passed, then does standard KFold,
+            otherwise implements GroupShuffleSplit (if shuffle is True),
+            or GroupKFold (if shuffle is False)
         n_splits : int, optional
             Number of splits / folds, by default 5
         shuffle : bool, optional
@@ -58,34 +65,44 @@ class GroupFolds:
                 "x_data and y_data do not have compatible shapes "
                 + "(need to have same number of samples)"
             )
-        if x_data.shape[0] != groups.shape[0]:
-            raise ValueError(
-                "x_data and groups do not have compatible shapes "
-                + "(need to have same number of samples)"
-            )
+        if groups is not None:
+            if x_data.shape[0] != groups.shape[0]:
+                raise ValueError(
+                    "x_data and groups do not have compatible shapes "
+                    + "(need to have same number of samples)"
+                )
         self.x_data = x_data
         self.y_data = y_data
         self.groups = groups
         self.n_splits = n_splits
         self.shuffle = shuffle
         if self.shuffle:
-            # GroupShuffleSplit does not guarantee that every group is in a test group
             self.random_state = random_state
-            self.fold = GroupShuffleSplit(
-                n_splits=self.n_splits, random_state=self.random_state
-            )
         else:
-            # GroupKFold guarantees that every group is in a test group once
             self.random_state = None
-            self.fold = GroupKFold(n_splits=self.n_splits)
+        if self.groups is not None:
+            if self.shuffle:
+                # GroupShuffleSplit does not guarantee that every group is in a test group
+                self.fold = GroupShuffleSplit(
+                    n_splits=self.n_splits, random_state=self.random_state
+                )
+            else:
+                # GroupKFold guarantees that every group is in a test group once
+                self.fold = GroupKFold(n_splits=self.n_splits)
+        else:
+            self.fold = KFold(
+                n_splits=self.n_splits,
+                shuffle=self.shuffle,
+                random_state=self.random_state,
+            )
         self.fold_indices = list(self.fold.split(X=x_data, groups=groups))
 
     def get_splits(
         self,
         fold_index: int,
         dev_size: float = 0.33,
-        as_DataLoader=False,
-        data_loader_args: dict = {"batch_size": 1, "shuffle": True},
+        as_DataLoader: bool = False,
+        data_loader_args: dict = {"batch_size": 64, "shuffle": True},
     ) -> Union[
         Tuple[DataLoader, DataLoader, DataLoader],
         Tuple[
@@ -112,7 +129,7 @@ class GroupFolds:
         data_loader_args : _type_, optional
             Any keywords to be passed in obtaining the
             `torch.utils.data.dataloader.DataLoader` object,
-            by default {"batch_size": 1, "shuffle": True}
+            by default {"batch_size": 64, "shuffle": True}
 
         Returns
         -------

@@ -9,8 +9,8 @@ from torch.optim.optimizer import Optimizer
 from torch.utils.data.dataloader import DataLoader
 from tqdm import tqdm
 
-from nlpsig.classification_utils import GroupFolds, set_seed
-from nlpsig.focal_loss import FocalLoss
+from nlpsig.classification_utils import Folds, set_seed
+from nlpsig.focal_loss import ClassBalanced_FocalLoss, FocalLoss
 
 
 def validation_pytorch(
@@ -72,7 +72,7 @@ def validation_pytorch(
                     f"Epoch: {epoch+1} || "
                     + f"Loss: {total_loss / len(valid_loader)} || "
                     + f"Accuracy: {accuracy} || "
-                    + f"F1-score: {f1_v}."
+                    + f"F1-score: {f1_v}"
                 )
 
         return total_loss / len(valid_loader), accuracy, f1_v
@@ -86,7 +86,7 @@ def training_pytorch(
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
-    patience: Optional[int] = 3,
+    patience: Optional[int] = 10,
     verbose: bool = False,
     verbose_epoch: int = 100,
     verbose_item: int = 1000,
@@ -112,7 +112,7 @@ def training_pytorch(
     seed : Optional[int], optional
         Seed number, by default 42
     patience : Optional[int], optional
-        Patience parameter for early stopping rule, by default 3
+        Patience parameter for early stopping rule, by default 10
     verbose : bool, optional
         Whether or not to print progress, by default False
     verbose_epoch : int, optional
@@ -211,17 +211,21 @@ def testing_pytorch(
             labels_all = torch.cat([labels_all, labels_t])
             predicted_all = torch.cat([predicted_all, predicted_t])
 
+    print(
+        f"Accuracy on dataset of size {len(labels_all)}: "
+        "{100 * sum(labels_all==predicted_all) / len(labels_all)} %."
+    )
     return predicted_all, labels_all
 
 
 def KFold_pytorch(
-    folds: GroupFolds,
+    folds: Folds,
     model: nn.Module,
     criterion: nn.Module,
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
-    patience: Optional[int] = 3,
+    patience: Optional[int] = 10,
     verbose_args: dict = {
         "verbose": True,
         "verbose_epoch": 100,
@@ -233,7 +237,7 @@ def KFold_pytorch(
 
     Parameters
     ----------
-    folds : GroupFolds
+    folds : Folds
         Object which stores and obtains the folds
     model : torch.nn.Module
         PyTorch model which inherits from the `torch.nn.Module` class
@@ -246,7 +250,7 @@ def KFold_pytorch(
     seed : Optional[int], optional
         Seed number, by default 42
     patience : Optional[int], optional
-        Patience parameter for early stopping rule, by default 3
+        Patience parameter for early stopping rule, by default 10
     verbose_args : _type_, optional
         Arguments for how to print progress, by default
         {"verbose": True,
@@ -280,7 +284,10 @@ def KFold_pytorch(
         criterion = checkpoint["criterion"]
         if isinstance(criterion, FocalLoss):
             y_train = folds.get_splits(fold_index=fold)[5]
-            criterion.set_alpha_from_y(y=torch.tensor(y_train))
+            criterion.set_alpha_from_y(y=y_train)
+        elif isinstance(criterion, ClassBalanced_FocalLoss):
+            y_train = folds.get_splits(fold_index=fold)[5]
+            criterion.set_samples_per_cls_from_y(y=y_train)
 
         # obtain test, valid and test dataloaders
         train, valid, test = folds.get_splits(fold_index=fold, as_DataLoader=True)

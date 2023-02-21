@@ -93,7 +93,7 @@ class PlotEmbedding:
         if (not overwrite) and (embed_name in self.embed):
             print(
                 f"[INFO] {method} with dim={dim} is already calculated. "
-                + "You can set overwrite = True to recompute."
+                + "You can set overwrite = True to recompute"
             )
             return
         implemented_methods = ["pca", "umap", "tsne"]
@@ -128,5 +128,5 @@ class PlotEmbedding:
             raise NotImplementedError(
                 f"{method} to reduce dimensions of embeddings "
                 + "is not implemented. Try one of the following: "
-                + f"{', '.join(implemented_methods)}."
+                + f"{', '.join(implemented_methods)}"
             )

@@ -883,7 +883,7 @@ class PrepareData:
 
         Returns
         -------
-        (torch.tensor, int)
+        Tuple[torch.tensor, int]
             First element is a tensor to be inputted to `StackedDeepSigNet` model.
             Second element is the number of channels in the path for which
             we compute the path signature for in `StackedDeepSigNet`.

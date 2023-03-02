@@ -86,6 +86,7 @@ def training_pytorch(
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
+    early_stopping: bool = False,
     patience: Optional[int] = 10,
     verbose: bool = False,
     verbose_epoch: int = 100,
@@ -111,6 +112,9 @@ def training_pytorch(
         Number of epochs
     seed : Optional[int], optional
         Seed number, by default 42
+    early_stopping: bool, optional
+        Whether or not early stopping will be done, in which case
+        you must consider the `patience` argument
     patience : Optional[int], optional
         Patience parameter for early stopping rule, by default 10
     verbose : bool, optional
@@ -166,7 +170,7 @@ def training_pytorch(
             verbose=verbose,
             verbose_epoch=verbose_epoch,
         )
-        if f1_v < last_metric:
+        if early_stopping and (f1_v < last_metric):
             trigger_times += 1
             if trigger_times >= patience:
                 print(f"Early stopping at epoch {epoch+1}!")
@@ -213,7 +217,7 @@ def testing_pytorch(
 
     print(
         f"Accuracy on dataset of size {len(labels_all)}: "
-        "{100 * sum(labels_all==predicted_all) / len(labels_all)} %."
+        f"{100 * sum(labels_all==predicted_all) / len(labels_all)} %."
     )
     return predicted_all, labels_all
 
@@ -225,6 +229,7 @@ def KFold_pytorch(
     optimizer: Optimizer,
     num_epochs: int,
     seed: Optional[int] = 42,
+    early_stopping: bool = False,
     patience: Optional[int] = 10,
     verbose_args: dict = {
         "verbose": True,
@@ -249,6 +254,9 @@ def KFold_pytorch(
         Number of epochs
     seed : Optional[int], optional
         Seed number, by default 42
+    early_stopping: bool, optional
+        Whether or not early stopping will be done, in which case
+        you must consider the `patience` argument
     patience : Optional[int], optional
         Patience parameter for early stopping rule, by default 10
     verbose_args : _type_, optional
@@ -301,6 +309,7 @@ def KFold_pytorch(
             optimizer=optimizer,
             num_epochs=num_epochs,
             seed=seed,
+            early_stopping=early_stopping,
             patience=patience,
             **verbose_args,
         )

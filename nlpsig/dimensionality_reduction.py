@@ -45,6 +45,7 @@ class DimReduce:
         self.method = method
         self.n_components = n_components
         self.kwargs = dim_reduction_kwargs
+        self.reducer = None
         self.embedding = None
 
     def fit_transform(self, embeddings: np.array, random_state: int = 42) -> np.array:
@@ -79,8 +80,9 @@ class DimReduce:
             if self.method == "pca":
                 if self.kwargs is None:
                     self.kwargs = {}
-                pca = PCA(n_components=self.n_components, **self.kwargs)
-                self.embedding = pca.fit_transform(embeddings)
+                self.reducer = PCA(n_components=self.n_components,
+                                   **self.kwargs)
+                self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "umap":
                 if self.kwargs is None:
                     self.kwargs = {
@@ -88,25 +90,25 @@ class DimReduce:
                         "n_neighbors": 50,
                         "metric": "cosine",
                     }
-                reducer = umap.UMAP(
+                self.reducer = umap.UMAP(
                     n_components=self.n_components,
                     random_state=random_state,
                     transform_seed=random_state,
                     **self.kwargs,
                 )
-                reducer.fit_transform(embeddings)
-                self.embedding = reducer.embedding_
+                self.reducer.fit_transform(embeddings)
+                self.embedding = self.reducer.embedding_
             elif self.method == "tsne":
                 if self.kwargs is None:
                     self.kwargs = {}
-                tsne = TSNE(
+                self.reducer = TSNE(
                     n_components=self.n_components,
                     learning_rate="auto",
                     random_state=random_state,
                     **self.kwargs,
                 )
-                tsne.fit_transform(embeddings)
-                self.embedding = tsne.embedding_
+                self.reducer.fit_transform(embeddings)
+                self.embedding = self.reducer.embedding_
             elif self.method == "ppapca":
                 self.embedding = self.ppa_pca(
                     embeddings,

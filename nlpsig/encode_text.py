@@ -1043,6 +1043,13 @@ class TextEncoder:
             A dictionary of Datasets with training (`train`), validation (`valid`)
             (if `valid_size` is not None), and test (`test`) Datasets.
         """
+        if self.dataset_split is not None:
+            print(
+                "[INFO] Dataset has already been split. "
+                "If required to split again, first set `.dataset_split` attribute to None"
+            )
+            return self.dataset_split
+
         if valid_size is None:
             print(
                 "[INFO] Splitting up dataset into train / test sets, "

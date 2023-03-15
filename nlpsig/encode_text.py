@@ -1022,7 +1022,10 @@ class TextEncoder:
         return self.pooled_embeddings
 
     def split_dataset(
-        self, train_size: float = 0.8, valid_size: Optional[float] = 0.5
+        self, 
+        train_size: float = 0.8,
+        valid_size: Optional[float] = 0.5,
+        seed: int = 42, 
     ) -> DatasetDict:
         """
         Split up dataset into train, validation, test sets for training / fine-tuning.
@@ -1036,6 +1039,8 @@ class TextEncoder:
             For example, if the size of the dataset is N=100, and we have `train_size=0.8`,
             `valid_size=0.5`, the training set will have 80 samples, the validation set
             will have 10 samples and the test set will have 10 samples.
+        seed : int, optional
+            Seed for splitting, by default 42.
 
         Returns
         -------
@@ -1062,10 +1067,12 @@ class TextEncoder:
             )
 
         # first split data into train set, test/valid set
-        train_testvalid = self.dataset.train_test_split(train_size=train_size)
+        train_testvalid = self.dataset.train_test_split(train_size=train_size,
+                                                        seed=seed)
         if valid_size is not None:
             # further split the test set into a test, valid set
-            test_valid = train_testvalid["test"].train_test_split(train_size=valid_size)
+            test_valid = train_testvalid["test"].train_test_split(train_size=valid_size,
+                                                                  seed=seed)
             # gather everyone if you want to have a single DatasetDict
             self.dataset_split = DatasetDict(
                 {

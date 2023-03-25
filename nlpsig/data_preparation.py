@@ -247,7 +247,7 @@ class PrepareData:
         print("[INFO] Adding 'timeline_index' feature...")
         self.df["timeline_index"] = list(
             self.df.groupby(self.id_column)
-            .apply(lambda x: list(range(len(x))))
+            .apply(lambda x: list(range(1, len(x)+1)))
             .explode()
         )
         self.time_features_added = True

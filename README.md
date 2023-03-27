@@ -1,20 +1,3 @@
-<div align="center">
-    <br>
-    <p align="center">
-    <h2>Extract features from textual data using BERT and Path signature</h2>
-    </p>
-</div>
-
-Original architecture:
-<p align="center">
-<img src="./figs/architecture_figure.png" alt="Model architecture">
-</p>
-
-DeepSigNet architecture:
-<p align="center">
-<img src="./figs/updated_architecture_figure_2.png" alt="Model architecture">
-</p>
-
 ## Installation
 
 We recommend installation via Anaconda (refer to [Anaconda website and follow the instructions](https://docs.anaconda.com/anaconda/install/)).
@@ -43,7 +26,7 @@ You can then follow the installation instructions for Linux and macOS above.
 * For using within Jupyter, you can create a kernel with:
 
 ```bash
-python -m ipykernel install --user --name nlpsig --display-name "Python (nlpsig)"
+python -m ipykernel install --user --name nlpsig --display-name "nlpsig"
 ```
 
 ### Use `nlpsig` without conda

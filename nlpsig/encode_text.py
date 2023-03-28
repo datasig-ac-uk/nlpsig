@@ -285,7 +285,7 @@ class TextEncoder:
         self,
         feature_name: str,
         df: Optional[pd.DataFrame] = None,
-        full_dataset: Optional[Dataset] = None,
+        dataset: Optional[Dataset] = None,
         model_name: Optional[str] = None,
         model: Optional[PreTrainedModel] = None,
         config: Optional[PretrainedConfig] = None,
@@ -303,12 +303,12 @@ class TextEncoder:
             Column name which has the text in
         df : Optional[pd.DataFrame], optional
             Dataset as a pandas dataframe, by default None.
-            If `df` is not provided, `full_dataset` must be provided.
+            If `df` is not provided, `dataset` must be provided.
             A dataframe will then be created from it.
-        full_dataset : Optional[Dataset], optional
+        dataset : Optional[Dataset], optional
             Huggingface Dataset object for the full dataset, by default None.
             If `df` is a dataframe, a Dataset will be created from it,
-            even if `full_dataset` is provided.
+            even if `dataset` is provided.
         model_name : Optional[str], optional
             Name of transformer encoder model from Huggingface Hub, by default None.
             To be used if want to load in a pretrained model.
@@ -328,13 +328,13 @@ class TextEncoder:
             self.df: pd.DataFrame = df
             self.dataset: Dataset = Dataset.from_pandas(df)
         else:
-            # df is not passed in, must have Dataset passed into full_dataset
-            if isinstance(full_dataset, Dataset):
-                self.df: pd.DataFrame = pd.DataFrame(full_dataset)
-                self.dataset: Dataset = full_dataset
+            # df is not passed in, must have Dataset passed into dataset
+            if isinstance(dataset, Dataset):
+                self.df: pd.DataFrame = pd.DataFrame(dataset)
+                self.dataset: Dataset = dataset
             else:
                 raise TypeError(
-                    "If `df` is not passed in, then `full_dataset` "
+                    "If `df` is not passed in, then `dataset` "
                     "must be a Dataset object."
                 )
         if isinstance(feature_name, str):

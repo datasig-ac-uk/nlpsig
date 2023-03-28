@@ -5,8 +5,8 @@ We recommend installation via Anaconda (refer to [Anaconda website and follow th
 * Linux and macOS
 
 ```bash
-git clone git@github.com:ttseriotou/path_signatures_bert.git
-cd path_signatures_bert
+git clone git@github.com:datasig-ac-uk/nlpsig.git
+cd nlpsig
 conda env create
 conda activate nlpsig
 pip install .
@@ -34,8 +34,8 @@ python -m ipykernel install --user --name nlpsig --display-name "nlpsig"
 To use `nlpsig` without conda:
 
 ```shell
-git clone git@github.com:ttseriotou/path_signatures_bert.git
-cd path_signatures_bert
+git clone git@github.com:datasig-ac-uk/nlpsig.git
+cd nlpsig
 pip install .
 ```
 

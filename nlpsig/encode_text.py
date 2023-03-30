@@ -9,7 +9,7 @@ from datasets.dataset_dict import DatasetDict
 from sentence_transformers import SentenceTransformer
 from torch import nn
 from torch.utils.data import DataLoader
-from tqdm import tqdm
+from tqdm.auto import tqdm
 from transformers import (
     AutoConfig,
     AutoModel,

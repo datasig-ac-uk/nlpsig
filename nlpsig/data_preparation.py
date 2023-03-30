@@ -4,7 +4,7 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 import pandas as pd
 import torch
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 
 class PrepareData:

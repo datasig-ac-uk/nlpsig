@@ -13,6 +13,54 @@ from torch.utils.data import TensorDataset
 from torch.utils.data.dataloader import DataLoader
 
 
+def split_dataset(x_data: torch.Tensor,
+                  y_data: torch.Tensor,
+                  train_size: float = 0.8,
+                  valid_size: Optional[float] = 0.5,
+                  shuffle: float = True,
+                  as_DataLoader: bool = False,
+                  data_loader_args: dict = {"batch_size": 64, "shuffle": True},
+                  seed: int = 42):
+    if (train_size < 0) or (train_size > 1):
+        raise ValueError("train_size must be between 0 and 1")
+
+     # first split data into train set, test/valid set
+    train_index, test_index = train_test_split(range(len(y_data)),
+                                               test_size=(1-train_size),
+                                               shuffle=shuffle,
+                                               random_state=seed)
+    
+    if valid_size is not None:
+        # further split the test set into a test, valid set
+        test_index, valid_index = train_test_split(test_index,
+                                                   test_size=valid_size,
+                                                   shuffle=shuffle,
+                                                   random_state=seed)
+        x_valid = x_data[valid_index]
+        y_valid = y_data[valid_index]
+    
+    x_train = x_data[train_index]
+    y_train = y_data[train_index]
+    x_test = x_data[test_index]
+    y_test = y_data[test_index]
+    
+    if as_DataLoader:
+        if valid_size is not None:
+            valid = TensorDataset(x_valid, y_valid)
+            valid_loader = DataLoader(dataset=valid, **data_loader_args)
+        else:
+            valid_loader = None
+            
+        train = TensorDataset(x_train, y_train)
+        test = TensorDataset(x_test, y_test)
+        train_loader = DataLoader(dataset=train, **data_loader_args)
+        test_loader = DataLoader(dataset=test, **data_loader_args)
+        
+        return train_loader, valid_loader, test_loader
+    else:
+        return x_test, y_test, x_valid, y_valid, x_train, y_train
+
+
 class Folds:
     """
     Class to split the data into different folds based on groups

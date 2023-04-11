@@ -12,8 +12,8 @@ from __future__ import annotations
 # -- Project information -----------------------------------------------------
 
 project = "nlpsig"
-copyright = "2023, Nathan Simpson"
-author = "Nathan Simpson"
+copyright = "2023, DataSig"
+author = "DataSig"
 
 
 # -- General configuration ---------------------------------------------------

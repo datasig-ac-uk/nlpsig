@@ -1,4 +1,4 @@
-from typing import Optional
+from __future__ import annotations
 
 import numpy as np
 import umap
@@ -15,7 +15,7 @@ class DimReduce:
         self,
         method: str = "ppapca",
         n_components: int = 5,
-        dim_reduction_kwargs: Optional[dict] = None,
+        dim_reduction_kwargs: dict | None = None,
     ) -> None:
         """
         Class to perform dimension reduction on word or sentence embeddings
@@ -69,7 +69,7 @@ class DimReduce:
         NotImplementedError
             if `method` attribute of the class is not one of the implemented methods
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
@@ -80,8 +80,7 @@ class DimReduce:
             if self.method == "pca":
                 if self.kwargs is None:
                     self.kwargs = {}
-                self.reducer = PCA(n_components=self.n_components,
-                                   **self.kwargs)
+                self.reducer = PCA(n_components=self.n_components, **self.kwargs)
                 self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "umap":
                 if self.kwargs is None:
@@ -180,7 +179,7 @@ class DimReduce:
         U1 = pca.components_
         # Remove top-D components
         z = []
-        for i, x in enumerate(embeddings):
+        for _i, x in enumerate(embeddings):
             for u in U1[0:dim]:
                 x = x - np.dot(u.transpose(), x) * u
             z.append(x)
@@ -202,7 +201,7 @@ class DimReduce:
             U2 = pca.components_
             # Remove top-D components
             z_new = []
-            for i, x in enumerate(embeddings_fit):
+            for _i, x in enumerate(embeddings_fit):
                 for u in U2[1:dim]:
                     x = x - np.dot(u.transpose(), x) * u
                 z_new.append(x)

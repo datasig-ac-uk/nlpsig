@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import pickle
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Callable, Iterable
 
 import numpy as np
 import pandas as pd
@@ -36,7 +38,7 @@ class SentenceEncoder:
         df: pd.DataFrame,
         feature_name: str,
         model_name: str = "all-MiniLM-L6-v2",
-        model_modules: Optional[Iterable[nn.Module]] = None,
+        model_modules: Iterable[nn.Module] | None = None,
         model_encoder_args: dict = {
             "batch_size": 64,
             "show_progress_bar": True,
@@ -170,7 +172,7 @@ class SentenceEncoder:
             return
         try:
             self.model = SentenceTransformer(model_name_or_path=self.model_name)
-        except:
+        except Exception:
             raise NotImplementedError(
                 f"Loading model '{self.model_name}' with SentenceTransformer failed. "
                 "See SentenceTransformer documentation in sentence_transformers."
@@ -212,7 +214,7 @@ class SentenceEncoder:
             )
         try:
             self.model = SentenceTransformer(modules=self.model_modules)
-        except:
+        except Exception:
             raise NotImplementedError(
                 f"Loading model with modules: {self.model_modules}, with SentenceTransformer "
                 "failed. See SentenceTransformer documentation in sentence_transformers "
@@ -247,7 +249,7 @@ class SentenceEncoder:
         return self.sentence_embeddings
 
     def fit_transformer(
-        self, train_objectives: Iterable[Tuple[DataLoader, nn.Module]]
+        self, train_objectives: Iterable[tuple[DataLoader, nn.Module]]
     ) -> None:
         # TODO
         """
@@ -284,13 +286,13 @@ class TextEncoder:
     def __init__(
         self,
         feature_name: str,
-        df: Optional[pd.DataFrame] = None,
-        dataset: Optional[Dataset] = None,
-        model_name: Optional[str] = None,
-        model: Optional[PreTrainedModel] = None,
-        config: Optional[PretrainedConfig] = None,
-        tokenizer: Optional[PreTrainedTokenizer] = None,
-        data_collator: Optional[DataCollator] = None,
+        df: pd.DataFrame | None = None,
+        dataset: Dataset | None = None,
+        model_name: str | None = None,
+        model: PreTrainedModel | None = None,
+        config: PretrainedConfig | None = None,
+        tokenizer: PreTrainedTokenizer | None = None,
+        data_collator: DataCollator | None = None,
     ):
         """
         Class to obtain token embeddings (and optionally pool them)
@@ -400,7 +402,7 @@ class TextEncoder:
             "[INFO] By default, `.load_pretrained_model()` uses "
             "`AutoModel` to load in the model. "
             "If you want to load the model for a specific task, "
-            "reset the `.model` attribue."
+            "reset the `.model` attribute."
         )
         self.model = AutoModel.from_pretrained(self.model_name)
         self.model.eval()
@@ -429,7 +431,7 @@ class TextEncoder:
             "[INFO] By default, `.initialise_transformer()` uses "
             "`AutoModel` to load in the model. "
             "If you want to load the model for a specific task, "
-            "reset the `.model` attribue."
+            "reset the `.model` attribute."
         )
         self.model = AutoModel.from_config(self.config)
         self.model.eval()
@@ -540,7 +542,7 @@ class TextEncoder:
                 )
 
         # tokenize the dataset and save the tokens in .tokens attribute
-        print("[INFO] Tokenizing the datatset...")
+        print("[INFO] Tokenizing the dataset...")
         self.dataset = self.dataset.map(
             tokenize_function,
             batched=batched,
@@ -606,8 +608,8 @@ class TextEncoder:
         self,
         batch_tokens: BatchEncoding,
         method: str,
-        layers: Optional[Union[int, List[int], Tuple[int]]],
-    ) -> Union[np.array, List[np.array]]:
+        layers: int | list[int] | tuple[int] | None,
+    ) -> np.array | list[np.array]:
         """
         [Private] For a given batch of tokens, `batch_tokens`,
         compute token embeddings from hidden layers.
@@ -702,10 +704,7 @@ class TextEncoder:
                 ]
             else:
                 if any(
-                    [
-                        (layer < 0) or (layer >= hidden_states.shape[0])
-                        for layer in layers
-                    ]
+                    (layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers
                 ):
                     raise ValueError(
                         f"Requested layers ({layers}) is out of range: only have "
@@ -730,7 +729,7 @@ class TextEncoder:
                     if hidden_states.shape[0] - i >= 0
                 ]
             if any(
-                [(layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers]
+                (layer < 0) or (layer >= hidden_states.shape[0]) for layer in layers
             ):
                 raise ValueError(
                     f"Requested layers ({layers}) is out of range: only have "
@@ -782,8 +781,8 @@ class TextEncoder:
         self,
         method: str = "hidden_layer",
         batch_size: int = 100,
-        layers: Optional[Union[int, List[int], Tuple[int]]] = None,
-    ) -> Union[np.array, List[np.array]]:
+        layers: int | list[int] | tuple[int] | None = None,
+    ) -> np.array | list[np.array]:
         """
         Once text has been tokenized (using `.tokenize_text`), can obtain token embeddings
         for each token in `.tokenized_df["tokens"]`.
@@ -1022,10 +1021,10 @@ class TextEncoder:
         return self.pooled_embeddings
 
     def split_dataset(
-        self, 
+        self,
         train_size: float = 0.8,
-        valid_size: Optional[float] = 0.5,
-        seed: int = 42, 
+        valid_size: float | None = 0.5,
+        seed: int = 42,
     ) -> DatasetDict:
         """
         Split up dataset into train, validation, test sets for training / fine-tuning.
@@ -1067,12 +1066,14 @@ class TextEncoder:
             )
 
         # first split data into train set, test/valid set
-        train_testvalid = self.dataset.train_test_split(train_size=train_size,
-                                                        seed=seed)
+        train_testvalid = self.dataset.train_test_split(
+            train_size=train_size, seed=seed
+        )
         if valid_size is not None:
             # further split the test set into a test, valid set
-            test_valid = train_testvalid["test"].train_test_split(train_size=valid_size,
-                                                                  seed=seed)
+            test_valid = train_testvalid["test"].train_test_split(
+                train_size=valid_size, seed=seed
+            )
             # gather everyone if you want to have a single DatasetDict
             self.dataset_split = DatasetDict(
                 {
@@ -1119,8 +1120,8 @@ class TextEncoder:
 
     def set_up_trainer(
         self,
-        data_collator: Optional[DataCollator] = None,
-        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        data_collator: DataCollator | None = None,
+        compute_metrics: Callable[[EvalPrediction], dict] | None = None,
         **kwargs,
     ) -> Trainer:
         """
@@ -1175,11 +1176,11 @@ class TextEncoder:
 
     def fit_transformer_with_trainer_api(
         self,
-        output_dir: Optional[str] = None,
-        data_collator: Optional[DataCollator] = None,
-        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
-        training_args: Optional[Dict] = None,
-        trainer_args: Optional[Dict] = None,
+        output_dir: str | None = None,
+        data_collator: DataCollator | None = None,
+        compute_metrics: Callable[[EvalPrediction], dict] | None = None,
+        training_args: dict | None = None,
+        trainer_args: dict | None = None,
     ):
         """
         Train / fine-tune transformer model to some task.
@@ -1187,7 +1188,7 @@ class TextEncoder:
         If the dataset hasn't been split up, or either of the training arguments
         or trainer hasn't been set up, can pass in arguments to do that here.
         Otherwise uses the split dataset, training arguments and trainer saved in
-        `.dataset_split`, `.training_args` and `.trainer`, repsectively.
+        `.dataset_split`, `.training_args` and `.trainer`, respectively.
 
         Parameters
         ----------

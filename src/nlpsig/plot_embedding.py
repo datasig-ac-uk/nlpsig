@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 from distinctipy import colorsets
@@ -70,7 +72,7 @@ class PlotEmbedding:
         method : str, optional
             Which dimensionality reduction technique to use, by default "pca"
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         dim : int, optional
@@ -85,7 +87,7 @@ class PlotEmbedding:
         NotImplementedError
             if `method` is not one of the implemented methods
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         """

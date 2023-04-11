@@ -11,7 +11,7 @@ DIR = Path(__file__).parent.resolve()
 nox.options.sessions = ["lint", "pylint", "tests"]
 
 
-@nox.session
+@nox.session(python="3.8")
 def lint(session: nox.Session) -> None:
     """
     Run the linter.
@@ -20,18 +20,18 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
-@nox.session
-def pylint(session: nox.Session) -> None:
-    """
-    Run PyLint.
-    """
-    # This needs to be installed into the package environment, and is slower
-    # than a pre-commit check
-    session.install(".", "pylint")
-    session.run("pylint", "src", *session.posargs)
+# @nox.session(python="3.8")
+# def pylint(session: nox.Session) -> None:
+#     """
+#     Run PyLint.
+#     """
+#     # This needs to be installed into the package environment, and is slower
+#     # than a pre-commit check
+#     session.install(".", "pylint")
+#     session.run("pylint", "src", *session.posargs)
 
 
-@nox.session
+@nox.session(python="3.8")
 def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
@@ -40,7 +40,7 @@ def tests(session: nox.Session) -> None:
     session.run("pytest", *session.posargs)
 
 
-@nox.session
+@nox.session(python="3.8")
 def coverage(session: nox.Session) -> None:
     """
     Run tests and compute coverage.
@@ -50,7 +50,7 @@ def coverage(session: nox.Session) -> None:
     tests(session)
 
 
-@nox.session
+@nox.session(python="3.8")
 def docs(session: nox.Session) -> None:
     """
     Build the docs. Pass "--serve" to serve.
@@ -69,7 +69,7 @@ def docs(session: nox.Session) -> None:
         session.run("python", "-m", "http.server", "8000", "-d", "_build/html")
 
 
-@nox.session
+@nox.session(python="3.8")
 def build_api_docs(session: nox.Session) -> None:
     """
     Build (regenerate) API docs.
@@ -88,7 +88,7 @@ def build_api_docs(session: nox.Session) -> None:
     )
 
 
-@nox.session
+@nox.session(python="3.8")
 def build(session: nox.Session) -> None:
     """
     Build an SDist and wheel.

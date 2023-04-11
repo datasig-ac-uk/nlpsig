@@ -1,13 +1,14 @@
-import pytest
+from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+import pytest
 
 rng = np.random.default_rng(2022)
 
-@pytest.fixture
+
+@pytest.fixture()
 def test_df():
-    
     n_entries = 1000
     list_datetimes = pd.to_datetime(
         [
@@ -35,6 +36,6 @@ def test_df():
     )
 
 
-@pytest.fixture
+@pytest.fixture()
 def emb():
     return rng.random((1000, 300))

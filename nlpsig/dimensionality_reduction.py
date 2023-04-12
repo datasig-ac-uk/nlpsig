@@ -26,9 +26,11 @@ class DimReduce:
         method : str, optional
             Which dimensionality reduction technique to use, by default "ppapca"
             Options are
-            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
+            - "pca" (PCA): implemented using scikit-learn
             - "tsne" (TSNE): implemented using scikit-learn
+            - "gaussian_random_projection" (Gaussian random projection): implemented using scikit-learn
+            - "sparse_random_projection" (sparse random projection): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
               (see Mu, J., Bhat, S., and Viswanath, P. (2017). All-but-the-top:
               Simple and effective postprocessing for word representations.

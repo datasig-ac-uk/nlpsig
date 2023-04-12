@@ -128,8 +128,7 @@ class DimReduce:
                     random_state=random_state,
                     **self.kwargs,
                 )
-                self.reducer.fit_transform(embeddings)
-                self.embedding = self.reducer.embedding_
+                self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "sparse_random_projection":
                 if self.kwargs is None:
                     self.kwargs = {}
@@ -138,8 +137,7 @@ class DimReduce:
                     random_state=random_state,
                     **self.kwargs,
                 )
-                self.reducer.fit_transform(embeddings)
-                self.embedding = self.reducer.embedding_
+                self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "ppapca":
                 self.embedding = self.ppa_pca(
                     embeddings,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 from distinctipy import colorsets
@@ -25,8 +27,8 @@ class PlotEmbedding:
 
     def plt_2d(
         self,
-        embed_args: dict = {"method": "pca", "dim": 2},
-        line_args: dict = {"marker": "o", "alpha": 0.3},
+        embed_args: dict | None = None,
+        line_args: dict | None = None,
     ) -> None:
         """
         Plots the embedding in 2d space after first performing dimension reduction
@@ -41,6 +43,10 @@ class PlotEmbedding:
             (arguments for `matplotlib.pyplot.scatter()`),
             by default {"marker": "o", "alpha": 0.3}
         """
+        if embed_args is None:
+            embed_args = {"method": "pca", "dim": 2}
+        if line_args is None:
+            line_args = {"marker": "o", "alpha": 0.3}
         assert embed_args["dim"] >= 2, "dim in embed_args should be >= 2"
         self.embedding_dim_reduce(**embed_args)
         colors = colorsets.get_colors()[0 : len(np.unique(self.y_data.astype(int)))]
@@ -70,7 +76,7 @@ class PlotEmbedding:
         method : str, optional
             Which dimensionality reduction technique to use, by default "pca"
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         dim : int, optional
@@ -85,7 +91,7 @@ class PlotEmbedding:
         NotImplementedError
             if `method` is not one of the implemented methods
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         """
@@ -93,7 +99,7 @@ class PlotEmbedding:
         if (not overwrite) and (embed_name in self.embed):
             print(
                 f"[INFO] {method} with dim={dim} is already calculated. "
-                + "You can set overwrite = True to recompute"
+                "You can set overwrite = True to recompute"
             )
             return
         implemented_methods = ["pca", "umap", "tsne"]
@@ -127,6 +133,6 @@ class PlotEmbedding:
         else:
             raise NotImplementedError(
                 f"{method} to reduce dimensions of embeddings "
-                + "is not implemented. Try one of the following: "
-                + f"{', '.join(implemented_methods)}"
+                "is not implemented. Try one of the following: "
+                f"{', '.join(implemented_methods)}"
             )

@@ -1,44 +1,154 @@
-[tool.poetry]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project]
 name = "nlpsig"
-version = "0.1.0"
-description = "Extract features from textual data using BERT and Path signatures"
 authors = [
-    "Ryan Chan <rchan@turing.ac.uk>",
-    "Talia Tseriotou <t.tseriotou@qmul.ac.uk>",
-    "Kasra Hosseini <khosseini@turing.ac.uk>"
+  { name = "Ryan Chan", email = "rchan@turing.ac.uk" },
+  { name = "Talia Tseriotou", email = "t.tseriotou@qmul.ac.uk" },
+  { name = "Kasra Hosseini", email = "khosseini@turing.ac.uk" },
+  { name = "Nathan Simpson", email = "nsimpson@turing.ac.uk" },
+]
+description = "Path signatures for Natural Language Processing."
+readme = "README.md"
+requires-python = ">=3.8, <3.9"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: BSD License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.8",
+  "Topic :: Scientific/Engineering",
+]
+dynamic = ["version"]
+dependencies = [
+    "torch >= 1.9.0",
+    "sentence-transformers >= 2.2.2",
+    "matplotlib >= 3.6.2",
+    "tdqm >= 0.0.1",
+    "pandas >= 1.5.1",
+    "umap-learn >= 0.5.3",
+    "scikit-learn >= 1.1.3",
+    "datasets >= 2.6.1",
+    "distinctipy >= 1.2.2",
+    "transformers >= 4.27.3",
 ]
 
-[tool.poetry.dependencies]
-python = ">=3.8, <3.9"
-torch = "1.9.0"
-signatory = "1.2.6.1.9.0"
-sentence-transformers = "^2.2.2"
-matplotlib = "^3.6.2"
-tdqm = "^0.0.1"
-pandas = "^1.5.1"
-numpy = "^1.23.4"
-umap-learn = "^0.5.3"
-scikit-learn = "^1.1.3"
-datasets = "^2.6.1"
-distinctipy = "^1.2.2"
-notebook = "^6.5.2"
-black = "^22.10.0"
-isort = "^5.10.1"
-flake8 = "^5.0.4"
-pylint = "^2.15.5"
-pre-commit = "^2.20.0"
-pytest = "^7.2.0"
-pytest-black = "^0.3.12"
-transformers = "^4.27.3"
+[project.optional-dependencies]
+test = [
+  "pytest >=6",
+  "pytest-cov >=3",
+]
+dev = [
+  "pytest >=6",
+  "pytest-cov >=3",
+]
+docs = [
+  "sphinx>=4.0",
+  "myst_parser>=0.13",
+  "sphinx-book-theme>=0.1.0",
+  "sphinx_copybutton",
+  "furo",
+]
 
-[tool.poetry.dev-dependencies]
-black = "^22.1.0"
-isort = "^5.8.0"
-pylint = "^2.7.4"
+[project.urls]
+Homepage = "https://github.com/datasig-ac-uk/nlpsig"
+"Bug Tracker" = "https://github.com/datasig-ac-uk/nlpsig/issues"
+Discussions = "https://github.com/datasig-ac-uk/nlpsig/discussions"
+Changelog = "https://github.com/datasig-ac-uk/nlpsig/releases"
+[tool.hatch]
+version.path = "src/nlpsig/__init__.py"
+envs.default.dependencies = [
+  "pytest",
+  "pytest-cov",
+]
 
-[tool.isort]
-profile = "black"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+filterwarnings = [
+    "error",
+    "ignore:Tensorflow not installed; ParametricUMAP will be unavailable:ImportWarning",  # umap
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",  # umap
+    "ignore:Deprecated call to *:DeprecationWarning",
+]
+log_cli_level = "INFO"
+testpaths = [
+  "tests",
+]
+
+
+[tool.mypy]
+files = "src"
+python_version = "3.8"
+# warn_unused_configs = true
+# strict = true
+# show_error_codes = true
+# enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+# warn_unreachable = true
+
+
+[tool.ruff]
+select = [
+  "E", "F", "W", # flake8
+  "B",           # flake8-bugbear
+  "I",           # isort
+  "ARG",         # flake8-unused-arguments
+  "C4",          # flake8-comprehensions
+  "ICN",         # flake8-import-conventions
+  "ISC",         # flake8-implicit-str-concat
+  "G",           # flake8-logging-format
+  "PGH",         # pygrep-hooks
+  "PIE",         # flake8-pie
+  "PL",          # pylint
+  "PT",          # flake8-pytest-style
+  "RET",         # flake8-return
+  "RUF",         # Ruff-specific
+  "SIM",         # flake8-simplify
+#  "T20",         # flake8-print, turned off for now (replace w/ logging)
+  "UP",          # pyupgrade
+  "YTT",         # flake8-2020
+  "EXE",         # flake8-executable
+  "NPY",         # NumPy specific rules
+#  "PD",          # pandas-vet, turned off for now (df var name)
+]
+extend-ignore = [
+  "PLR",    # Design related pylint codes
+  "E501",   # Line too long
+]
+target-version = "py38"
+typing-modules = ["nlpsig._compat.typing"]
+src = ["src"]
+unfixable = [
+  "T20",  # Removes print statements
+  "F841", # Removes unused variables
+]
+exclude = []
+flake8-unused-arguments.ignore-variadic-names = true
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.per-file-ignores]
+"tests/**" = ["T20"]
+"noxfile.py" = ["T20"]
+
+
+[tool.pylint]
+py-version = "3.8"
+ignore-paths= ["src/nlpsig/_version.py"]
+reports.output-format = "colorized"
+similarities.ignore-imports = "yes"
+messages_control.disable = [
+  "design",
+  "fixme",
+  "line-too-long",
+  "missing-module-docstring",
+  "wrong-import-position",
+]

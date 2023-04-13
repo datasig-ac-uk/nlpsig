@@ -1,7 +1,8 @@
-import random
-from typing import Optional, Tuple, Union
+from __future__ import annotations
 
-import numpy as np
+import os
+import random
+
 import torch
 from sklearn.model_selection import (
     GroupKFold,
@@ -13,52 +14,57 @@ from torch.utils.data import TensorDataset
 from torch.utils.data.dataloader import DataLoader
 
 
-def split_dataset(x_data: torch.Tensor,
-                  y_data: torch.Tensor,
-                  train_size: float = 0.8,
-                  valid_size: Optional[float] = 0.5,
-                  shuffle: float = True,
-                  as_DataLoader: bool = False,
-                  data_loader_args: dict = {"batch_size": 64, "shuffle": True},
-                  seed: int = 42):
+def split_dataset(
+    x_data: torch.Tensor,
+    y_data: torch.Tensor,
+    train_size: float = 0.8,
+    valid_size: float | None = 0.5,
+    shuffle: float = True,
+    as_DataLoader: bool = False,
+    data_loader_args: dict | None = None,
+    seed: int = 42,
+):
+    if data_loader_args is None:
+        data_loader_args = {"batch_size": 64, "shuffle": True}
     if (train_size < 0) or (train_size > 1):
-        raise ValueError("train_size must be between 0 and 1")
+        msg = "train_size must be between 0 and 1"
+        raise ValueError(msg)
 
-     # first split data into train set, test/valid set
-    train_index, test_index = train_test_split(range(len(y_data)),
-                                               test_size=(1-train_size),
-                                               shuffle=shuffle,
-                                               random_state=seed)
-    
+    # first split data into train set, test/valid set
+    train_index, test_index = train_test_split(
+        range(len(y_data)),
+        test_size=(1 - train_size),
+        shuffle=shuffle,
+        random_state=seed,
+    )
+
     if valid_size is not None:
         # further split the test set into a test, valid set
-        test_index, valid_index = train_test_split(test_index,
-                                                   test_size=valid_size,
-                                                   shuffle=shuffle,
-                                                   random_state=seed)
+        test_index, valid_index = train_test_split(
+            test_index, test_size=valid_size, shuffle=shuffle, random_state=seed
+        )
         x_valid = x_data[valid_index]
         y_valid = y_data[valid_index]
-    
+
     x_train = x_data[train_index]
     y_train = y_data[train_index]
     x_test = x_data[test_index]
     y_test = y_data[test_index]
-    
+
     if as_DataLoader:
         if valid_size is not None:
             valid = TensorDataset(x_valid, y_valid)
             valid_loader = DataLoader(dataset=valid, **data_loader_args)
         else:
             valid_loader = None
-            
+
         train = TensorDataset(x_train, y_train)
         test = TensorDataset(x_test, y_test)
         train_loader = DataLoader(dataset=train, **data_loader_args)
         test_loader = DataLoader(dataset=test, **data_loader_args)
-        
+
         return train_loader, valid_loader, test_loader
-    else:
-        return x_test, y_test, x_valid, y_valid, x_train, y_train
+    return x_test, y_test, x_valid, y_valid, x_train, y_train
 
 
 class Folds:
@@ -70,7 +76,7 @@ class Folds:
         self,
         x_data: torch.Tensor,
         y_data: torch.Tensor,
-        groups: Optional[torch.Tensor] = None,
+        groups: torch.Tensor | None = None,
         n_splits: int = 5,
         shuffle: bool = False,
         random_state: int = 42,
@@ -107,18 +113,21 @@ class Folds:
             (number of rows in `x_data` should equal the length of `groups`)
         """
         if n_splits < 2:
-            raise ValueError("n_splits should be at least 2")
+            msg = "n_splits should be at least 2"
+            raise ValueError(msg)
         if x_data.shape[0] != y_data.shape[0]:
-            raise ValueError(
+            msg = (
                 "x_data and y_data do not have compatible shapes "
-                + "(need to have same number of samples)"
+                "(need to have same number of samples)"
             )
-        if groups is not None:
-            if x_data.shape[0] != groups.shape[0]:
-                raise ValueError(
-                    "x_data and groups do not have compatible shapes "
-                    + "(need to have same number of samples)"
-                )
+            raise ValueError(msg)
+        if groups is not None and x_data.shape[0] != groups.shape[0]:
+            msg = (
+                "x_data and groups do not have compatible shapes "
+                "(need to have same number of samples)"
+            )
+            raise ValueError(msg)
+
         self.x_data = x_data
         self.y_data = y_data
         self.groups = groups
@@ -150,18 +159,18 @@ class Folds:
         fold_index: int,
         dev_size: float = 0.33,
         as_DataLoader: bool = False,
-        data_loader_args: dict = {"batch_size": 64, "shuffle": True},
-    ) -> Union[
-        Tuple[DataLoader, DataLoader, DataLoader],
-        Tuple[
+        data_loader_args: dict | None = None,
+    ) -> (
+        tuple[DataLoader, DataLoader, DataLoader]
+        | tuple[
             torch.Tensor,
             torch.Tensor,
             torch.Tensor,
             torch.Tensor,
             torch.Tensor,
             torch.Tensor,
-        ],
-    ]:
+        ]
+    ):
         """
         Obtains the data from a particular fold
 
@@ -199,11 +208,16 @@ class Folds:
         ValueError
             if the requested fold_index is not valid
         """
+
+        if data_loader_args is None:
+            data_loader_args = ({"batch_size": 64, "shuffle": True},)
+
         if fold_index not in list(range(self.n_splits)):
-            raise ValueError(
+            msg = (
                 f"There are {self.n_splits} folds, so "
-                + f"fold_index must be in {list(range(self.n_splits))}"
+                f"fold_index must be in {list(range(self.n_splits))}"
             )
+            raise ValueError(msg)
         # obtain train and test indices for provided fold_index
         train_index = self.fold_indices[fold_index][0]
         test_index = self.fold_indices[fold_index][1]
@@ -232,14 +246,13 @@ class Folds:
             test_loader = DataLoader(dataset=test, **data_loader_args)
 
             return train_loader, valid_loader, test_loader
-        else:
-            return x_test, y_test, x_valid, y_valid, x_train, y_train
+        return x_test, y_test, x_valid, y_valid, x_train, y_train
 
 
 def set_seed(seed: int) -> None:
     """
     Helper function for reproducible behavior to set the seed in
-    `random`, `numpy`, `torch` (if installed).
+    `random`, `torch`.
 
     Parameters
     ----------
@@ -247,6 +260,8 @@ def set_seed(seed: int) -> None:
         Seed number
     """
     random.seed(seed)
-    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    # np.random.seed(seed)  # not needed with numpy generators
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True

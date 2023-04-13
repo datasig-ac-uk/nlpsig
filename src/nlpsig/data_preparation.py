@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import re
-from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -16,10 +17,10 @@ class PrepareData:
         self,
         original_df: pd.DataFrame,
         embeddings: np.array,
-        embeddings_reduced: Optional[np.array] = None,
-        pooled_embeddings: Optional[np.array] = None,
-        id_column: Optional[str] = None,
-        labels_column: Optional[str] = None,
+        embeddings_reduced: np.array | None = None,
+        pooled_embeddings: np.array | None = None,
+        id_column: str | None = None,
+        labels_column: str | None = None,
     ):
         """
         Class to prepare dataset for computing signatures.
@@ -53,49 +54,48 @@ class PrepareData:
         """
         # perform checks that original_df have the right column names to work with
         if embeddings.ndim != 2:
-            raise ValueError("`embeddings` should be a 2-dimensional array.")
+            msg = "`embeddings` should be a 2-dimensional array."
+            raise ValueError(msg)
         if original_df.shape[0] != embeddings.shape[0]:
-            raise ValueError(
-                "`original_df` and `embeddings` should have the same number of rows."
-            )
+            msg = "`original_df` and `embeddings` should have the same number of rows."
+            raise ValueError(msg)
         if embeddings_reduced is not None:
             if embeddings_reduced.ndim != 2:
-                raise ValueError(
+                msg = (
                     "If provided, `embeddings_reduced` should be a 2-dimensional array."
                 )
+                raise ValueError(msg)
             if original_df.shape[0] != embeddings_reduced.shape[0]:
-                raise ValueError(
-                    "`original_df`, `embeddings` and `embeddings_reduced` "
-                    "should have the same number of rows"
-                )
+                msg = "`original_df`, `embeddings` and `embeddings_reduced` should have the same number of rows."
+                raise ValueError(msg)
+
         self.original_df: pd.DataFrame = original_df
-        self.id_column: Optional[str] = id_column
-        self.label_column: Optional[str] = labels_column
+        self.id_column: str | None = id_column
+        self.label_column: str | None = labels_column
         # set embeddings
         self.embeddings: np.array = embeddings
-        self.embeddings_reduced: Optional[np.array] = embeddings_reduced
+        self.embeddings_reduced: np.array | None = embeddings_reduced
         # obtain modelling dataframe
-        self.df: Optional[pd.DataFrame] = None
+        self.df: pd.DataFrame | None = None
         self.df = self._get_modeling_dataframe()
         # set pooled embeddings if provided
         if pooled_embeddings is not None:
             if pooled_embeddings.ndim != 2:
-                raise ValueError(
+                msg = (
                     "If provided, `pooled_embeddings` should be a 2-dimensional array."
                 )
+                raise ValueError(msg)
             if len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]:
-                raise ValueError(
-                    "If  provided, `pooled_embeddings` should have the same number of "
-                    "rows as there are different ids, i.e. we should have "
-                    "`len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]`."
-                )
-        self.pooled_embeddings: Optional[np.array] = pooled_embeddings
+                msg = "If provided, `pooled_embeddings` should have the same number of rows as there are different ids, i.e. we should have `len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]`."
+                raise ValueError(msg)
+
+        self.pooled_embeddings: np.array | None = pooled_embeddings
         # obtain time features
-        self._time_feature_choices: List[str] = []
+        self._time_feature_choices: list[str] = []
         self.time_features_added: bool = False
         self.df = self._set_time_features()
-        self.df_padded: Optional[pd.DataFrame] = None
-        self.array_padded: Optional[np.array] = None
+        self.df_padded: pd.DataFrame | None = None
+        self.array_padded: np.array | None = None
         # record method for creating the path
         self.pad_method = None
 
@@ -116,49 +116,47 @@ class PrepareData:
         """
         if self.df is not None:
             return self.df
-        else:
-            print("[INFO] Concatenating the embeddings to the dataframe...")
-            print("[INFO] - columns beginning with 'e' denote the full embddings.")
-            embedding_df = pd.DataFrame(
-                self.embeddings,
-                columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
+
+        print("[INFO] Concatenating the embeddings to the dataframe...")
+        print("[INFO] - columns beginning with 'e' denote the full embddings.")
+        embedding_df = pd.DataFrame(
+            self.embeddings,
+            columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
+        )
+        if self.embeddings_reduced is not None:
+            print(
+                "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
             )
-            if self.embeddings_reduced is not None:
-                print(
-                    "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
-                )
-                embeddings_reduced_df = pd.DataFrame(
-                    self.embeddings_reduced,
-                    columns=[
-                        f"d{i+1}" for i in range(self.embeddings_reduced.shape[1])
-                    ],
-                )
-                df = pd.concat(
-                    [
-                        self.original_df.reset_index(drop=True),
-                        embeddings_reduced_df,
-                        embedding_df,
-                    ],
-                    axis=1,
-                )
-            else:
-                df = pd.concat(
-                    [self.original_df.reset_index(drop=True), embedding_df],
-                    axis=1,
-                )
-            if self.id_column is None:
-                self.id_column = "dummy_id"
-                print(
-                    f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
-                )
-            if self.id_column not in self.original_df.columns:
-                # set default value to id_column
-                print(
-                    f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
-                    "Adding a new column named '{self.id_column}' of zeros."
-                )
-                df[self.id_column] = 0
-            return df
+            embeddings_reduced_df = pd.DataFrame(
+                self.embeddings_reduced,
+                columns=[f"d{i+1}" for i in range(self.embeddings_reduced.shape[1])],
+            )
+            df = pd.concat(
+                [
+                    self.original_df.reset_index(drop=True),
+                    embeddings_reduced_df,
+                    embedding_df,
+                ],
+                axis=1,
+            )
+        else:
+            df = pd.concat(
+                [self.original_df.reset_index(drop=True), embedding_df],
+                axis=1,
+            )
+        if self.id_column is None:
+            self.id_column = "dummy_id"
+            print(
+                f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
+            )
+        if self.id_column not in self.original_df.columns:
+            # set default value to id_column
+            print(
+                f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
+                "Adding a new column named '{self.id_column}' of zeros."
+            )
+            df[self.id_column] = 0
+        return df
 
     @staticmethod
     def _time_fraction(x: pd.Timestamp) -> float:
@@ -198,7 +196,7 @@ class PrepareData:
         """
         if self.time_features_added:
             print("Time features have already been added.")
-            return
+            return None
         print("[INFO] Adding time feature columns into dataframe in `.df`.")
         if "datetime" in self.df.columns:
             self._time_feature_choices += ["time_encoding", "time_diff"]
@@ -247,14 +245,14 @@ class PrepareData:
         print("[INFO] Adding 'timeline_index' feature...")
         self.df["timeline_index"] = list(
             self.df.groupby(self.id_column)
-            .apply(lambda x: list(range(1, len(x)+1)))
+            .apply(lambda x: list(range(1, len(x) + 1)))
             .explode()
         )
         self.time_features_added = True
 
         return self.df
 
-    def _obtain_colnames(self, embeddings: str) -> List[str]:
+    def _obtain_colnames(self, embeddings: str) -> list[str]:
         """
         [Private] Obtains the column names storing the embeddings.
 
@@ -296,8 +294,8 @@ class PrepareData:
 
     def _obtain_time_feature_columns(
         self,
-        time_feature: Optional[Union[List[str], str]],
-    ) -> List[str]:
+        time_feature: list[str] | str | None,
+    ) -> list[str]:
         """
         [Private] Obtains the column names storing the time features requested.
 
@@ -331,14 +329,11 @@ class PrepareData:
                 if time_feature not in self._time_feature_choices:
                     raise ValueError(
                         "If `time_feature` is a string, it must "
-                        + f"be in {self._time_feature_choices}."
+                        f"be in {self._time_feature_choices}."
                     )
-                else:
-                    time_feature = [time_feature]
+                time_feature = [time_feature]
             elif isinstance(time_feature, list):
-                if not all(
-                    [item in self._time_feature_choices for item in time_feature]
-                ):
+                if not all(item in self._time_feature_choices for item in time_feature):
                     raise ValueError(
                         f"Each item in   should be in {self._time_feature_choices}."
                     )
@@ -354,8 +349,8 @@ class PrepareData:
         k: int,
         padding_n: int,
         zero_padding: bool,
-        colnames: List[str],
-        time_feature: List[str],
+        colnames: list[str],
+        time_feature: list[str],
         id: int,
         pad_from_below: bool,
     ) -> pd.DataFrame:
@@ -413,14 +408,15 @@ class PrepareData:
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id], self.label_column: [-1]},
+                        self.id_column: [id],
+                        self.label_column: [-1],
                     }
                 else:
                     # no label column to add
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id]},
+                        self.id_column: [id],
                     }
                 pad = pd.DataFrame(data_dict)
             else:
@@ -441,21 +437,20 @@ class PrepareData:
                     ]
                 )
             return df_padded.reset_index(drop=True)
-        else:
-            if len(df) < k:
-                raise ValueError(
-                    "Requested to not pad, but there aren't enough entries in `df`."
-                )
-            return df[columns].tail(k).reset_index(drop=True)
+        if len(df) < k:
+            raise ValueError(
+                "Requested to not pad, but there aren't enough entries in `df`."
+            )
+        return df[columns].tail(k).reset_index(drop=True)
 
     def _pad_id(
         self,
         k: int,
         zero_padding: bool,
-        colnames: List[str],
+        colnames: list[str],
         id_counts: pd.Series,
         id: int,
-        time_feature: List[str],
+        time_feature: list[str],
         pad_from_below: bool,
     ) -> pd.DataFrame:
         """
@@ -515,9 +510,9 @@ class PrepareData:
         self,
         k: int,
         zero_padding: bool,
-        colnames: List[str],
+        colnames: list[str],
         index: int,
-        time_feature: List[str],
+        time_feature: list[str],
         include_current_embedding: bool,
         pad_from_below: bool,
     ) -> pd.DataFrame:
@@ -551,7 +546,7 @@ class PrepareData:
         ValueError
             if k is not a positive integer.
         ValueError
-            if index is outside the range of indicies of the dataframe ([0, 1, ..., len(.df)]).
+            if index is outside the range of indices of the dataframe ([0, 1, ..., len(.df)]).
         """
         if k < 0:
             raise ValueError("`k` must be a positive integer.")
@@ -590,7 +585,7 @@ class PrepareData:
         method: str = "k_last",
         zero_padding: bool = True,
         k: int = 5,
-        time_feature: Optional[Union[List[str], str]] = None,
+        time_feature: list[str] | str | None = None,
         standardise_time_feature: bool = True,
         standardise_method: str = "standardise",
         embeddings: str = "full",
@@ -735,10 +730,9 @@ class PrepareData:
         # standardised pandas series
         if method == "standardise":
             return (vec - vec.mean()) / vec.std()
-        elif method == "normalise":
+        if method == "normalise":
             return vec / vec.sum()
-        else:
-            raise ValueError("Method must be either 'standardise' or 'normalise'.")
+        raise ValueError("Method must be either 'standardise' or 'normalise'.")
 
     def get_torch_time_feature(
         self,
@@ -779,8 +773,7 @@ class PrepareData:
                 vec=self.df[time_feature], method=standardise_method
             )
             return torch.tensor(feature)
-        else:
-            return torch.tensor(self.df[time_feature])
+        return torch.tensor(self.df[time_feature])
 
     def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
         """
@@ -843,10 +836,7 @@ class PrepareData:
                 raise ValueError(
                     "There were no reduced embeddings passed into the class."
                 )
-            else:
-                colnames = [
-                    col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)
-                ]
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         else:
             colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
         return torch.tensor(self.df[colnames].values)
@@ -857,7 +847,7 @@ class PrepareData:
         include_time_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> Tuple[torch.tensor, int]:
+    ) -> tuple[torch.tensor, int]:
         """
         Returns a `torch.tensor` object that can be passed into `StackedDeepSigNet` model.
 
@@ -871,7 +861,7 @@ class PrepareData:
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
             network in the `StackedDeepSigNet` model.
-            If we created a path for each item in the dataset, we will concatentate
+            If we created a path for each item in the dataset, we will concatenate
             the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
             the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
             If we created a path for each id in `.id_column`, then we concatenate
@@ -917,8 +907,7 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
-                else:
-                    emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
+                emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
             elif self.pad_method == "history":
                 print(
                     "[INFO] The path was created for each item in the dataframe, "
@@ -930,15 +919,14 @@ class PrepareData:
                         raise ValueError(
                             "There were no reduced embeddings passed into the class."
                         )
-                    elif self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
+                    if self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
                         raise ValueError(
                             "If want to include reduced embeddings in the FFN input, the path "
                             "(found in `.array_padded`) must have the same number of "
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
-                    else:
-                        emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
+                    emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(

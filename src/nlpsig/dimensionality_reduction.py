@@ -4,7 +4,11 @@ import numpy as np
 import umap
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
-from sklearn.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
+from sklearn.random_projection import (
+    GaussianRandomProjection,
+    SparseRandomProjection,
+    johnson_lindenstrauss_min_dim,
+)
 
 
 class DimReduce:
@@ -80,13 +84,15 @@ class DimReduce:
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
             - "ppapcappa" (PPA-PCA-PPA)
         """
-        implemented_methods = ["pca",
-                               "umap",
-                               "tsne",
-                               "gaussian_random_projection",
-                               "sparse_random_projection",
-                               "ppapca",
-                               "ppapcappa"]
+        implemented_methods = [
+            "pca",
+            "umap",
+            "tsne",
+            "gaussian_random_projection",
+            "sparse_random_projection",
+            "ppapca",
+            "ppapcappa",
+        ]
         if self.method in implemented_methods:
             if self.method == "umap":
                 if self.kwargs is None:
@@ -106,8 +112,7 @@ class DimReduce:
             elif self.method == "pca":
                 if self.kwargs is None:
                     self.kwargs = {}
-                self.reducer = PCA(n_components=self.n_components,
-                                   **self.kwargs)
+                self.reducer = PCA(n_components=self.n_components, **self.kwargs)
                 self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "tsne":
                 if self.kwargs is None:

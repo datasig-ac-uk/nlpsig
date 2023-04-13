@@ -232,7 +232,7 @@ class DimReduce:
             embeddings_fit = embeddings_fit - np.mean(embeddings_fit)
             # Compute PCA Components
             pca = PCA(n_components=pca_dim)
-            # embeddings_fit_2 = pca.fit_transform(embeddings_fit)
+            pca.fit_transform(embeddings_fit)
             U2 = pca.components_
             # Remove top-D components
             z_new = []

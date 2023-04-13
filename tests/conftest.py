@@ -43,9 +43,9 @@ def emb():
 
 @pytest.fixture()
 def X_fit():
-    return np.random.Generator.uniform(size=(10000, 1000))
+    return rng.random((10000, 1000))
 
 
 @pytest.fixture()
 def X_new():
-    return np.random.Generator.uniform(size=(10000, 1000))
+    return rng.random((10000, 1000))

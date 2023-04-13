@@ -21,12 +21,12 @@ def test_umap(X_fit, X_new):
     assert reduction.embedding is None
 
     reduced_X_fit = reduction.fit_transform(X_fit)
-    assert reduction.reducer is umap.UMAP
-    assert reduction.embedding == reduced_X_fit
+    assert type(reduction.reducer) is umap.UMAP
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
     reduced_X_new = reduction.reducer.transform(X_new)
-    assert reduced_X_new == (X_new.shape[0], n_comp)
+    assert reduced_X_new.shape == (X_new.shape[0], n_comp)
 
 
 def test_pca(X_fit, X_new):
@@ -39,16 +39,16 @@ def test_pca(X_fit, X_new):
     assert reduction.embedding is None
 
     reduced_X_fit = reduction.fit_transform(X_fit)
-    assert reduction.reducer is PCA
-    assert reduction.embedding == reduced_X_fit
+    assert type(reduction.reducer) is PCA
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
     reduced_X_new = reduction.reducer.transform(X_new)
-    assert reduced_X_new == (X_new.shape[0], n_comp)
+    assert reduced_X_new.shape == (X_new.shape[0], n_comp)
 
 
 def test_tsne(X_fit):
-    n_comp = 25
+    n_comp = 3
     reduction = DimReduce(method="tsne", n_components=n_comp)
     assert reduction.method == "tsne"
     assert reduction.n_components == n_comp
@@ -57,8 +57,8 @@ def test_tsne(X_fit):
     assert reduction.embedding is None
 
     reduced_X_fit = reduction.fit_transform(X_fit)
-    assert reduction.reducer is TSNE
-    assert reduction.embedding == reduced_X_fit
+    assert type(reduction.reducer) is TSNE
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
 
@@ -72,12 +72,12 @@ def test_grp(X_fit, X_new):
     assert reduction.embedding is None
 
     reduced_X_fit = reduction.fit_transform(X_fit)
-    assert reduction.reducer is GaussianRandomProjection
-    assert reduction.embedding == reduced_X_fit
+    assert type(reduction.reducer) is GaussianRandomProjection
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
     reduced_X_new = reduction.reducer.transform(X_new)
-    assert reduced_X_new == (X_new.shape[0], n_comp)
+    assert reduced_X_new.shape == (X_new.shape[0], n_comp)
 
 
 def test_srp(X_fit, X_new):
@@ -90,12 +90,12 @@ def test_srp(X_fit, X_new):
     assert reduction.embedding is None
 
     reduced_X_fit = reduction.fit_transform(X_fit)
-    assert reduction.reducer is SparseRandomProjection
-    assert reduction.embedding == reduced_X_fit
+    assert type(reduction.reducer) is SparseRandomProjection
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
     reduced_X_new = reduction.reducer.transform(X_new)
-    assert reduced_X_new == (X_new.shape[0], n_comp)
+    assert reduced_X_new.shape == (X_new.shape[0], n_comp)
 
 
 def test_ppapca(X_fit):
@@ -109,7 +109,7 @@ def test_ppapca(X_fit):
 
     reduced_X_fit = reduction.fit_transform(X_fit)
     assert reduction.reducer is None
-    assert reduction.embedding == reduced_X_fit
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
 
@@ -124,5 +124,5 @@ def test_pcappapca(X_fit):
 
     reduced_X_fit = reduction.fit_transform(X_fit)
     assert reduction.reducer is None
-    assert reduction.embedding == reduced_X_fit
+    assert (reduction.embedding == reduced_X_fit).all()
     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)

@@ -115,10 +115,9 @@ class DimReduce:
                 self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "tsne":
                 if self.kwargs is None:
-                    self.kwargs = {}
+                    self.kwargs = {"learning_rate": "auto"}
                 self.reducer = TSNE(
                     n_components=self.n_components,
-                    learning_rate="auto",
                     random_state=random_state,
                     **self.kwargs,
                 )

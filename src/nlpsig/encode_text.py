@@ -39,16 +39,8 @@ class SentenceEncoder:
         feature_name: str,
         model_name: str = "all-MiniLM-L6-v2",
         model_modules: Iterable[nn.Module] | None = None,
-        model_encoder_args: dict = {
-            "batch_size": 64,
-            "show_progress_bar": True,
-            "output_value": "sentence_embedding",
-            "convert_to_numpy": True,
-            "convert_to_tensor": False,
-            "device": None,
-            "normalize_embeddings": False,
-        },
-        model_fit_args: dict = {},
+        model_encoder_args: dict | None = None,
+        model_fit_args: dict | None = None,
     ):
         """
         Class to obtain sentence embeddings using SentenceTransformer class
@@ -106,7 +98,20 @@ class SentenceEncoder:
         self.sentence_embeddings = None
         self.model_name = model_name
         self.model_modules = model_modules
+        if model_encoder_args is None:
+            model_encoder_args = {
+                "batch_size": 64,
+                "show_progress_bar": True,
+                "output_value": "sentence_embedding",
+                "convert_to_numpy": True,
+                "convert_to_tensor": False,
+                "device": None,
+                "normalize_embeddings": False,
+            }
         self.model_encoder_args = model_encoder_args
+        if model_fit_args is None:
+            model_fit_args = {}
+
         self.model_fit_args = model_fit_args
         self.model = None
 
@@ -172,11 +177,11 @@ class SentenceEncoder:
             return
         try:
             self.model = SentenceTransformer(model_name_or_path=self.model_name)
-        except Exception:
+        except Exception as err:
             raise NotImplementedError(
                 f"Loading model '{self.model_name}' with SentenceTransformer failed. "
                 "See SentenceTransformer documentation in sentence_transformers."
-            )
+            ) from err
 
     def load_custom_model(self, force_reload: bool = False) -> None:
         """
@@ -214,14 +219,14 @@ class SentenceEncoder:
             )
         try:
             self.model = SentenceTransformer(modules=self.model_modules)
-        except Exception:
+        except Exception as err:
             raise NotImplementedError(
                 f"Loading model with modules: {self.model_modules}, with SentenceTransformer "
                 "failed. See SentenceTransformer documentation in sentence_transformers "
                 "(https://www.sbert.net/docs/training/"
                 "overview.html#creating-networks-from-scratch) "
                 "for information on how to create the networks architectures from scratch."
-            )
+            ) from err
 
     def obtain_embeddings(self) -> np.array:
         """

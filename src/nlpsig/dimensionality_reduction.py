@@ -7,7 +7,6 @@ from sklearn.manifold import TSNE
 from sklearn.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
-    johnson_lindenstrauss_min_dim,
 )
 
 
@@ -31,10 +30,10 @@ class DimReduce:
             Which dimensionality reduction technique to use, by default "ppapca"
             Options are
             - "umap" (UMAP): implemented using `umap-learn` package
-            - "pca" (PCA): implemented using scikit-learn
-            - "tsne" (TSNE): implemented using scikit-learn
-            - "gaussian_random_projection" (Gaussian random projection): implemented using scikit-learn
-            - "sparse_random_projection" (sparse random projection): implemented using scikit-learn
+            - "pca" (PCA): implemented using `scikit-learn`
+            - "tsne" (TSNE): implemented using `scikit-learn`
+            - "gaussian_random_projection" (Gaussian random projection): implemented using `scikit-learn`
+            - "sparse_random_projection" (sparse random projection): implemented using `scikit-learn`
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
               (see Mu, J., Bhat, S., and Viswanath, P. (2017). All-but-the-top:
               Simple and effective postprocessing for word representations.
@@ -77,10 +76,10 @@ class DimReduce:
             if `method` attribute of the class is not one of the implemented methods
             Options are
             - "umap" (UMAP): implemented using `umap-learn` package
-            - "pca" (PCA): implented using scikit-learn
-            - "tsne" (TSNE): implemented using scikit-learn
-            - "gaussian_random_projection" (Gaussian random projection): implemented using scikit-learn
-            - "sparse_random_projection" (sparse random projection): implemented using scikit-learn
+            - "pca" (PCA): implemented using `scikit-learn`
+            - "tsne" (TSNE): implemented using `scikit-learn`
+            - "gaussian_random_projection" (Gaussian random projection): implemented using `scikit-learn`
+            - "sparse_random_projection" (sparse random projection): implemented using `scikit-learn`
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
             - "ppapcappa" (PPA-PCA-PPA)
         """

@@ -159,7 +159,8 @@ class DimReduce:
         else:
             raise NotImplementedError(
                 f"{self.method} is not implemented. "
-                f"Try one of the following: " + f"{', '.join(implemented_methods)}"
+                f"Try one of the following: "
+                f"{', '.join(implemented_methods)}"
             )
         return self.embedding
 
@@ -201,7 +202,7 @@ class DimReduce:
         """
         if n_components < dim:
             raise ValueError("n_components must be greater than or equal to dim")
-        elif n_components > pca_dim:
+        if n_components > pca_dim:
             raise ValueError("n_components must be less than or equal to pca_dim")
 
         # PPA NO 1
@@ -213,10 +214,11 @@ class DimReduce:
         U1 = pca.components_
         # Remove top-D components
         z = []
-        for _i, x in enumerate(embeddings):
+        for x in embeddings:
+            x_tmp = x
             for u in U1[0:dim]:
-                x = x - np.dot(u.transpose(), x) * u
-            z.append(x)
+                x_tmp = x_tmp - np.dot(u.transpose(), x_tmp) * u
+            z.append(x_tmp)
         z = np.asarray(z).astype(np.float32)
 
         # Main PCA
@@ -235,10 +237,11 @@ class DimReduce:
             U2 = pca.components_
             # Remove top-D components
             z_new = []
-            for _i, x in enumerate(embeddings_fit):
+            for x in embeddings_fit:
+                x_tmp = x
                 for u in U2[1:dim]:
-                    x = x - np.dot(u.transpose(), x) * u
-                z_new.append(x)
+                    x_tmp = x_tmp - np.dot(u.transpose(), x_tmp) * u
+                z_new.append(x_tmp)
             embs_reduced = z[:, :n_components]
 
         return embs_reduced

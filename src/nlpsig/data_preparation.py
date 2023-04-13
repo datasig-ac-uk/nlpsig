@@ -329,10 +329,9 @@ class PrepareData:
                 if time_feature not in self._time_feature_choices:
                     raise ValueError(
                         "If `time_feature` is a string, it must "
-                        + f"be in {self._time_feature_choices}."
+                        f"be in {self._time_feature_choices}."
                     )
-                else:
-                    time_feature = [time_feature]
+                time_feature = [time_feature]
             elif isinstance(time_feature, list):
                 if not all(item in self._time_feature_choices for item in time_feature):
                     raise ValueError(
@@ -409,14 +408,15 @@ class PrepareData:
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id], self.label_column: [-1]},
+                        self.id_column: [id],
+                        self.label_column: [-1],
                     }
                 else:
                     # no label column to add
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id]},
+                        self.id_column: [id],
                     }
                 pad = pd.DataFrame(data_dict)
             else:
@@ -437,12 +437,11 @@ class PrepareData:
                     ]
                 )
             return df_padded.reset_index(drop=True)
-        else:
-            if len(df) < k:
-                raise ValueError(
-                    "Requested to not pad, but there aren't enough entries in `df`."
-                )
-            return df[columns].tail(k).reset_index(drop=True)
+        if len(df) < k:
+            raise ValueError(
+                "Requested to not pad, but there aren't enough entries in `df`."
+            )
+        return df[columns].tail(k).reset_index(drop=True)
 
     def _pad_id(
         self,
@@ -731,10 +730,9 @@ class PrepareData:
         # standardised pandas series
         if method == "standardise":
             return (vec - vec.mean()) / vec.std()
-        elif method == "normalise":
+        if method == "normalise":
             return vec / vec.sum()
-        else:
-            raise ValueError("Method must be either 'standardise' or 'normalise'.")
+        raise ValueError("Method must be either 'standardise' or 'normalise'.")
 
     def get_torch_time_feature(
         self,
@@ -775,8 +773,7 @@ class PrepareData:
                 vec=self.df[time_feature], method=standardise_method
             )
             return torch.tensor(feature)
-        else:
-            return torch.tensor(self.df[time_feature])
+        return torch.tensor(self.df[time_feature])
 
     def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
         """
@@ -839,10 +836,7 @@ class PrepareData:
                 raise ValueError(
                     "There were no reduced embeddings passed into the class."
                 )
-            else:
-                colnames = [
-                    col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)
-                ]
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         else:
             colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
         return torch.tensor(self.df[colnames].values)
@@ -913,8 +907,7 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
-                else:
-                    emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
+                emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
             elif self.pad_method == "history":
                 print(
                     "[INFO] The path was created for each item in the dataframe, "
@@ -926,15 +919,14 @@ class PrepareData:
                         raise ValueError(
                             "There were no reduced embeddings passed into the class."
                         )
-                    elif self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
+                    if self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
                         raise ValueError(
                             "If want to include reduced embeddings in the FFN input, the path "
                             "(found in `.array_padded`) must have the same number of "
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
-                    else:
-                        emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
+                    emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(

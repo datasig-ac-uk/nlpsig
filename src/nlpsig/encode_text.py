@@ -448,13 +448,13 @@ class TextEncoder:
                 "into the `.model` attribute, or call "
                 "`.load_pretrained_model()` or `.initialise_transformer()`."
             )
-        elif self.tokenizer is None:
+        if self.tokenizer is None:
             raise NotImplementedError(
                 "No tokenizer has been initialised yet. First pass in a tokenizer "
                 "into the `.tokenizer` attribute, or call "
                 "`.load_pretrained_model()` or `.initialise_transformer()`."
             )
-        elif self.data_collator is None:
+        if self.data_collator is None:
             raise NotImplementedError(
                 "No data collator has been initialised yet. First pass in a data collator "
                 "into the `.data_collator` attribute, or call "
@@ -693,7 +693,7 @@ class TextEncoder:
                         f"Requested layer ({layers}) is out of range: only have "
                         f"{hidden_states.shape[0]} number of hidden layers."
                     )
-                elif layers < 0:
+                if layers < 0:
                     raise ValueError(
                         f"Requested layer ({layers}) is out of range: "
                         "must be greater than or equal to 0, and we only have "
@@ -1009,15 +1009,14 @@ class TextEncoder:
                     "If want cls embeddings, will need to obtain token "
                     "embeddings again but set `.skip_special_tokens=False` first."
                 )
-            else:
-                self.pooled_embeddings = [
-                    self.token_embeddings[
-                        self.tokenized_df.index[
-                            self.tokenized_df[self.text_id_col_name] == i
-                        ]
-                    ][0]
-                    for i in tqdm(range(len(self.df)))
-                ]
+            self.pooled_embeddings = [
+                self.token_embeddings[
+                    self.tokenized_df.index[
+                        self.tokenized_df[self.text_id_col_name] == i
+                    ]
+                ][0]
+                for i in tqdm(range(len(self.df)))
+            ]
         else:
             raise NotImplementedError(
                 f"Method '{method}' for pooling the token embeddings not been implemented."

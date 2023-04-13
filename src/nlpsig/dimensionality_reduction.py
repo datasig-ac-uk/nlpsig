@@ -4,6 +4,7 @@ import numpy as np
 import umap
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
+from sklearn.random_projection import GaussianRandomProjection, SparseRandomProjection, johnson_lindenstrauss_min_dim
 
 
 class DimReduce:
@@ -25,9 +26,11 @@ class DimReduce:
         method : str, optional
             Which dimensionality reduction technique to use, by default "ppapca"
             Options are
-            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
+            - "pca" (PCA): implemented using scikit-learn
             - "tsne" (TSNE): implemented using scikit-learn
+            - "gaussian_random_projection" (Gaussian random projection): implemented using scikit-learn
+            - "sparse_random_projection" (sparse random projection): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
               (see Mu, J., Bhat, S., and Viswanath, P. (2017). All-but-the-top:
               Simple and effective postprocessing for word representations.
@@ -69,20 +72,23 @@ class DimReduce:
         NotImplementedError
             if `method` attribute of the class is not one of the implemented methods
             Options are
-            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
+            - "pca" (PCA): implented using scikit-learn
             - "tsne" (TSNE): implemented using scikit-learn
+            - "gaussian_random_projection" (Gaussian random projection): implemented using scikit-learn
+            - "sparse_random_projection" (sparse random projection): implemented using scikit-learn
             - "ppapca" (Post Processing Algorithm (PPA) with PCA)
-            - "ppapacppa" (PPA-PCA-PPA)
+            - "ppapcappa" (PPA-PCA-PPA)
         """
-        implemented_methods = ["pca", "umap", "tsne", "ppapca", "ppapcappa"]
+        implemented_methods = ["pca",
+                               "umap",
+                               "tsne",
+                               "gaussian_random_projection",
+                               "sparse_random_projection",
+                               "ppapca",
+                               "ppapcappa"]
         if self.method in implemented_methods:
-            if self.method == "pca":
-                if self.kwargs is None:
-                    self.kwargs = {}
-                self.reducer = PCA(n_components=self.n_components, **self.kwargs)
-                self.embedding = self.reducer.fit_transform(embeddings)
-            elif self.method == "umap":
+            if self.method == "umap":
                 if self.kwargs is None:
                     self.kwargs = {
                         "min_dist": 0.99,
@@ -97,6 +103,12 @@ class DimReduce:
                 )
                 self.reducer.fit_transform(embeddings)
                 self.embedding = self.reducer.embedding_
+            elif self.method == "pca":
+                if self.kwargs is None:
+                    self.kwargs = {}
+                self.reducer = PCA(n_components=self.n_components,
+                                   **self.kwargs)
+                self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "tsne":
                 if self.kwargs is None:
                     self.kwargs = {}
@@ -108,6 +120,24 @@ class DimReduce:
                 )
                 self.reducer.fit_transform(embeddings)
                 self.embedding = self.reducer.embedding_
+            elif self.method == "gaussian_random_projection":
+                if self.kwargs is None:
+                    self.kwargs = {}
+                self.reducer = GaussianRandomProjection(
+                    n_components=self.n_components,
+                    random_state=random_state,
+                    **self.kwargs,
+                )
+                self.embedding = self.reducer.fit_transform(embeddings)
+            elif self.method == "sparse_random_projection":
+                if self.kwargs is None:
+                    self.kwargs = {}
+                self.reducer = SparseRandomProjection(
+                    n_components=self.n_components,
+                    random_state=random_state,
+                    **self.kwargs,
+                )
+                self.embedding = self.reducer.fit_transform(embeddings)
             elif self.method == "ppapca":
                 self.embedding = self.ppa_pca(
                     embeddings,

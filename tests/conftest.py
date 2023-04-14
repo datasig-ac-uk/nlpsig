@@ -8,7 +8,7 @@ rng = np.random.default_rng(2022)
 
 
 @pytest.fixture()
-def test_df():
+def test_df_with_datetime():
     n_entries = 1000
     list_datetimes = pd.to_datetime(
         [
@@ -29,7 +29,7 @@ def test_df():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
-            "id_col": [rng.integers(1, 10) for i in range(n_entries)],
+            "id_col": [rng.integers(0, 5) for i in range(n_entries)],
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
             "datetime": [rng.choice(list_datetimes) for i in range(n_entries)],
         }
@@ -37,15 +37,42 @@ def test_df():
 
 
 @pytest.fixture()
+def test_df_no_time():
+    n_entries = 1000
+    return pd.DataFrame(
+        {
+            "text": [f"text_{i}" for i in range(n_entries)],
+            "id_col": [rng.integers(0, 5) for i in range(n_entries)],
+            "label_col": [rng.integers(0, 4) for i in range(n_entries)],
+        }
+    )
+
+
+@pytest.fixture()
 def emb():
+    return rng.random((1000, 1000))
+
+
+@pytest.fixture()
+def emb_reduced():
     return rng.random((1000, 300))
 
 
 @pytest.fixture()
+def emb_pooled():
+    return rng.random((5, 1000))
+
+
+@pytest.fixture()
+def emb_1d():
+    return rng.random(1000)
+
+
+@pytest.fixture()
 def X_fit():
-    return rng.random((10000, 1000))
+    return rng.random((300, 50))
 
 
 @pytest.fixture()
 def X_new():
-    return rng.random((10000, 1000))
+    return rng.random((200, 50))

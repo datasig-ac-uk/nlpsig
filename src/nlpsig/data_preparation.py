@@ -54,20 +54,21 @@ class PrepareData:
         """
         # perform checks that original_df have the right column names to work with
         if embeddings.ndim != 2:
-            msg = "`embeddings` should be a 2-dimensional array."
-            raise ValueError(msg)
+            raise ValueError("`embeddings` should be a 2-dimensional array.")
         if original_df.shape[0] != embeddings.shape[0]:
-            msg = "`original_df` and `embeddings` should have the same number of rows."
-            raise ValueError(msg)
+            raise ValueError(
+                "`original_df` and `embeddings` should have the same number of rows."
+            )
         if embeddings_reduced is not None:
             if embeddings_reduced.ndim != 2:
-                msg = (
+                raise ValueError(
                     "If provided, `embeddings_reduced` should be a 2-dimensional array."
                 )
-                raise ValueError(msg)
             if original_df.shape[0] != embeddings_reduced.shape[0]:
-                msg = "`original_df`, `embeddings` and `embeddings_reduced` should have the same number of rows."
-                raise ValueError(msg)
+                raise ValueError(
+                    "`original_df`, `embeddings` and `embeddings_reduced` "
+                    "should have the same number of rows."
+                )
 
         self.original_df: pd.DataFrame = original_df
         self.id_column: str | None = id_column
@@ -81,13 +82,18 @@ class PrepareData:
         # set pooled embeddings if provided
         if pooled_embeddings is not None:
             if pooled_embeddings.ndim != 2:
-                msg = (
+                raise ValueError(
                     "If provided, `pooled_embeddings` should be a 2-dimensional array."
                 )
-                raise ValueError(msg)
             if len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]:
-                msg = "If provided, `pooled_embeddings` should have the same number of rows as there are different ids, i.e. we should have `len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]`."
-                raise ValueError(msg)
+                print(
+                    f"[INFO] `len(self.df[self.id_column].unique())`={len(self.df[self.id_column].unique())}"
+                    f" and `pooled_embeddings.shape[0]`={pooled_embeddings.shape[0]}."
+                )
+                raise ValueError(
+                    "If provided, `pooled_embeddings` should have the same number "
+                    "of rows as there are different ids in the id-column."
+                )
 
         self.pooled_embeddings: np.array | None = pooled_embeddings
         # obtain time features
@@ -153,7 +159,7 @@ class PrepareData:
             # set default value to id_column
             print(
                 f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
-                "Adding a new column named '{self.id_column}' of zeros."
+                f"Adding a new column named '{self.id_column}' of zeros."
             )
             df[self.id_column] = 0
         return df
@@ -240,6 +246,7 @@ class PrepareData:
                 "we assume that the data is ordered by time with respect to the id."
             )
         # assign index for each post in each timeline
+        print(self._time_feature_choices)
         self._time_feature_choices += ["timeline_index"]
 
         print("[INFO] Adding 'timeline_index' feature...")
@@ -248,6 +255,7 @@ class PrepareData:
             .apply(lambda x: list(range(1, len(x) + 1)))
             .explode()
         )
+        print(self._time_feature_choices)
         self.time_features_added = True
 
         return self.df
@@ -335,7 +343,7 @@ class PrepareData:
             elif isinstance(time_feature, list):
                 if not all(item in self._time_feature_choices for item in time_feature):
                     raise ValueError(
-                        f"Each item in   should be in {self._time_feature_choices}."
+                        f"Each item in `time_feature` should be in {self._time_feature_choices}."
                     )
             else:
                 raise ValueError(

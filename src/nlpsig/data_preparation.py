@@ -306,11 +306,14 @@ class PrepareData:
     ) -> list[str]:
         """
         [Private] Obtains the column names storing the time features requested.
+        If a string or list is passed, it essentially just checks if it is an
+        available time feature that is stored in `_time_feature_choices` and returns
+        the time features in a list.
 
         Parameters
         ----------
         time_feature : Optional[Union[List[str], str]]
-            If is a string, it must be the list found in
+            If is a string, it must be in the list found in
             `_time_feature_choices` attribute. If is a list,
             each item must be a string and it must be in the
             list found in `_time_feature_choices` attribute.
@@ -327,6 +330,8 @@ class PrepareData:
         ValueError
             if `time_feature` is a list of strings, and one of the items
             is not found in `_time_feature_choices`.
+        TypeError
+            if `time_feature` is neither a string or a list.
         """
         if time_feature is None:
             time_feature = []
@@ -346,7 +351,7 @@ class PrepareData:
                         f"Each item in `time_feature` should be in {self._time_feature_choices}."
                     )
             else:
-                raise ValueError(
+                raise TypeError(
                     "`time_feature` must be either None, a string, or a list of strings."
                 )
         return time_feature

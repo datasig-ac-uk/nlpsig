@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 import pytest
+import regex as re
 
 from nlpsig.data_preparation import PrepareData
 
@@ -396,3 +397,88 @@ def test_obtain_colnames_both(test_df_with_datetime, emb, emb_reduced):
     assert obj._obtain_colnames(embeddings="full") == emb_names
     assert obj._obtain_colnames(embeddings="dim_reduced") == emb_reduced_names
     assert obj._obtain_colnames(embeddings="both") == emb_reduced_names + emb_names
+
+
+def test_obtain_time_feature_columns_string(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    assert obj._obtain_time_feature_columns("timeline_index") == ["timeline_index"]
+
+
+def test_obtain_time_feature_columns_list(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    assert obj._obtain_time_feature_columns(["time_encoding", "timeline_index"]) == [
+        "time_encoding",
+        "timeline_index",
+    ]
+
+
+def test_obtain_time_feature_columns_none(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    assert obj._obtain_time_feature_columns(None) == []
+
+
+def test_obtain_time_feature_columns_string_not_in(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"If `time_feature` is a string, it must be in {obj._time_feature_choices}."
+        ),
+    ):
+        obj._obtain_time_feature_columns("TEST_COLUMN")
+
+
+def test_obtain_time_feature_columns_list_not_in(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"Each item in `time_feature` should be in {obj._time_feature_choices}."
+        ),
+    ):
+        obj._obtain_time_feature_columns(["timeline_index", "TEST_COLUMN"])
+
+
+def test_obtain_time_feature_columns_type(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    with pytest.raises(
+        TypeError,
+        match="`time_feature` must be either None, a string, or a list of strings.",
+    ):
+        obj._obtain_time_feature_columns(0)

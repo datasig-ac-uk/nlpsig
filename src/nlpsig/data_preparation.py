@@ -705,7 +705,7 @@ class PrepareData:
             # let k be the largest number of items associated to an id
             k = id_counts.max()
         else:
-            raise ValueError("Method must be either 'k_last' or 'max'.")
+            raise ValueError("`method` must be either 'k_last' or 'max'.")
 
         # obtain time feature colnames
         time_feature_colnames = self._obtain_time_feature_columns(

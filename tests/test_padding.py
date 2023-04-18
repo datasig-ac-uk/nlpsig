@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -1192,38 +1193,155 @@ def test_pad_history_many_history_include_current(test_df_no_time, emb):
     )
 
 
-def test_standardise_pd_standardise(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="standardise"
-    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
-    standardise = obj._standardise_pd(vec=vec_to_standardise, method="standardise")
-    assert type(standardise) == dict
-    assert type(standardise["standardised_pd"]) == pd.Series
-    pd.testing.assert_series_equal(
-        standardise["standardised_pd"], pd.Series([-1.0, 0.0, 1.0])
+def test_pad_by_id_k_last(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
     )
-    pd.testing.assert_series_equal(
-        standardise["transform"](vec_to_standardise), pd.Series([-1.0, 0.0, 1.0])
+    k = 10
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature="timeline_index",
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
     )
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
 
 
-def test_standardise_pd_normalise(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="normalise"
-    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
-    standardise = obj._standardise_pd(vec=vec_to_standardise, method="normalise")
-    assert type(standardise) == dict
-    assert type(standardise["standardised_pd"]) == pd.Series
-    pd.testing.assert_series_equal(
-        standardise["standardised_pd"], pd.Series([1, 2, 3]) / 6
+def test_pad_by_id_max(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
     )
-    pd.testing.assert_series_equal(
-        standardise["transform"](vec_to_standardise), pd.Series([1, 2, 3]) / 6
+    padded_array = obj.pad(
+        pad_by="id",
+        method="max",
+        zero_padding=True,
+        time_feature="timeline_index",
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
     )
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    k = obj.original_df["id_col"].value_counts().max()
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
 
 
-def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method that isn't implemented
-    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
-    with pytest.raises(
-        ValueError, match="Method must be either 'standardise' or 'normalise'."
-    ):
-        obj._standardise_pd(vec=vec_to_standardise, method="fake_method")
+def test_pad_by_history_k_last(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    padded_array = obj.pad(
+        pad_by="history",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature="timeline_index",
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df.index), k, ncol)
+
+
+def test_pad_by_history_max(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    padded_array = obj.pad(
+        pad_by="history",
+        method="max",
+        zero_padding=True,
+        time_feature="timeline_index",
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    k = obj.original_df["id_col"].value_counts().max()
+    assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df.index), k, ncol)
+
+
+def test_pad_wrong_pad_by(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    with pytest.raises(ValueError, match="`pad_by` must be either 'id' or 'history'."):
+        obj.pad(
+            pad_by="fake_pad_by",
+            method="max",
+            zero_padding=True,
+            time_feature="timeline_index",
+            standardise_method=None,
+            embeddings="full",
+            include_current_embedding=True,
+            pad_from_below=True,
+        )
+
+
+def test_pad_wrong_method(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    with pytest.raises(ValueError, match="`method` must be either 'k_last' or 'max'."):
+        obj.pad(
+            pad_by="id",
+            method="fake_method",
+            zero_padding=True,
+            time_feature="timeline_index",
+            standardise_method=None,
+            embeddings="full",
+            include_current_embedding=True,
+            pad_from_below=True,
+        )

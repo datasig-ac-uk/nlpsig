@@ -63,7 +63,7 @@ class SentenceEncoder:
             - all-MiniLM-L12-v2
             See more pre-trained SentenceTransformer models at
             https://www.sbert.net/docs/pretrained_models.html.
-        model_modules : Optional[Iterable[nn.Module]], optional
+        model_modules : Iterable[nn.Module] | None, optional
             This parameter can be used to create custom
             SentenceTransformer models from scratch. See
             https://www.sbert.net/docs/training/overview.html#creating-networks-from-scratch
@@ -71,7 +71,7 @@ class SentenceEncoder:
             If creating a custom model using `.load_custom_model()` method,
             passes this into the `modules` argument when initialising
             `SentenceTransformer` object.
-        model_encoder_args : dict, optional
+        model_encoder_args : dict | None, optional
             Any keywords to be passed into the model for encoding sentences,
             by default the following arguments to pass into the
             `.encode()` method of SentenceTransformer class:
@@ -82,9 +82,9 @@ class SentenceEncoder:
              "convert_to_tensor": False,
              "device": None,
              "normalize_embeddings": False}
-        model_fit_args : dict, optional
+        model_fit_args : dict | None, optional
             Any keywords to be passed into the model to fine-tune sentence transformer,
-            by default
+            by default None
 
         Raises
         ------
@@ -308,24 +308,24 @@ class TextEncoder:
 
         feature_name : str
             Column name which has the text in
-        df : Optional[pd.DataFrame], optional
+        df : pd.DataFrame | None, optional
             Dataset as a pandas dataframe, by default None.
             If `df` is not provided, `dataset` must be provided.
             A dataframe will then be created from it.
-        dataset : Optional[Dataset], optional
+        dataset : Dataset | None, optional
             Huggingface Dataset object for the full dataset, by default None.
             If `df` is a dataframe, a Dataset will be created from it,
             even if `dataset` is provided.
-        model_name : Optional[str], optional
+        model_name : str | None, optional
             Name of transformer encoder model from Huggingface Hub, by default None.
             To be used if want to load in a pretrained model.
-        model : Optional[PreTrainedModel], optional
+        model : PreTrainedModel | None, optional
             Huggingface transformer model class, by default None.
-        config : Optional[PretrainedConfig], optional
+        config : PretrainedConfig | None, optional
             Huggingface configuration class, by default None.
-        tokenizer : Optional[PreTrainedTokenizer], optional
+        tokenizer : PreTrainedTokenizer | None, optional
             Huggingface tokenizer class, by default None.
-        data_collator : Optional[Union[DefaultDataCollator, DataCollatorWithPadding]], optional
+        data_collator : DataCollator | None, optional
             Data collator to use, by default None.
             Should work with the tokenizer that is passed in.
         """
@@ -486,9 +486,9 @@ class TextEncoder:
         skip_special_tokens : bool, optional
             Whether or not to skip special tokens added by the
             transformer tokenizer, by default True.
-        batched : bool
+        batched : bool, optional
             Whether or not to tokenize the text in batches, by default True.
-        batch_size: int
+        batch_size: int, optional
             The size of the batches (if used), by default 1000.
         **tokenizer_args
             Passed along to the `.tokenizer()` method. By default, we pass the following
@@ -630,7 +630,7 @@ class TextEncoder:
             Batch of tokens.
         method : str
             See overview of methods in `.obtain_embeddings()` method.
-        layers : Optional[Union[int, List[int], Tuple[int]]]
+        layers : int | list[int] | tuple[int] | None
             See description of layers in `.obtain_embeddings()` method.
 
         Returns
@@ -835,9 +835,9 @@ class TextEncoder:
                 - if `layers` is just an integer, token embedding will be taken as
                 is taken from the hidden state in layer number `layers`
                 (as mean of one layer hidden state is just that layer).
-        batch_size: int = 100
+        batch_size: int = 100, optional
             The size of the batches, by default 100.
-        layer : Optional[Union[int, Iterable[int]]]
+        layer : int | list[int] | tuple[int] | None, optional
             The layers to use when combining the hidden states of the transformer.
 
         Returns
@@ -1037,7 +1037,7 @@ class TextEncoder:
         ----------
         train_size : float, optional
             How to split the initial dataset into train, test/validation, by default 0.8.
-        valid_size : Optional[float], optional
+        valid_size : float | None, optional
             How to split the remaining dataset after the first split, by default 0.5.
             For example, if the size of the dataset is N=100, and we have `train_size=0.8`,
             `valid_size=0.5`, the training set will have 80 samples, the validation set
@@ -1133,11 +1133,11 @@ class TextEncoder:
 
         Parameters
         ----------
-        data_collator : Optional[DataCollator], optional
+        data_collator : DataCollator | None, optional
             The function to use to form a batch from a list of elements
             of `train_dataset` or `eval_dataset`, to pass into `Trainer()`,
             by default None.
-        compute_metrics : Optional[Callable[[EvalPrediction], Dict]], optional
+        compute_metrics : Callable[[EvalPrediction], dict] | None, optional
             The function that will be used to compute metrics at evaluation.
             Must take a `EvalPrediction` object and return a dictionary
             string to metric values, by default None.
@@ -1199,17 +1199,17 @@ class TextEncoder:
         output_dir : str
             The output directory where the model predictions
             and checkpoints will be written, by default None.
-        data_collator : Optional[DataCollator], optional
+        data_collator : DataCollator | None, optional
             The function to use to form a batch from a list of elements
             of `train_dataset` or `eval_dataset`, to pass into `Trainer()`,
             by default None.
-        compute_metrics : Optional[Callable[[EvalPrediction], Dict]], optional
+        compute_metrics : Callable[[EvalPrediction], dict] | None, optional
             The function that will be used to compute metrics at evaluation.
             Must take a `EvalPrediction` object and return a dictionary
             string to metric values, by default None.
-        training_args : Optional[Dict], optional
+        training_args : dict | None, optional
             Passed along to `TrainingArguments()` class, by default None.
-        trainer_args : Optional[Dict], optional
+        trainer_args : dict | None, optional
             Passed along to `Trainer()` class, by default None.
         """
         if self.dataset_split is None:

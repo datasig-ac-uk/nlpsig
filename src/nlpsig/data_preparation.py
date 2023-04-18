@@ -32,17 +32,17 @@ class PrepareData:
             Dataset as a pandas dataframe.
         embeddings : np.array
             Embeddings for each of the items in `original_df`.
-        embeddings_reduced : Optional[np.array], optional
+        embeddings_reduced : np.array | None, optional
             Dimension reduced embeddings, by default None.
-        pooled_embeddings : Optional[np.array], optional
+        pooled_embeddings : np.array | None, optional
             Pooled embeddings for each unique id in `id_column`, by default None.
-        id_column : Optional[str]
+        id_column : str | None, optional
             Name of the column which identifies each of the text, e.g.
             - "text_id" (if each item in `original_df` is a word or sentence from a particular text),
             - "user_id" (if each item in `original_df` is a post from a particular user)
             - "timeline_id" (if each item in `original_df` is a post from a particular time)
             If None, it will create a dummy id_column named "dummy_id" and fill with zeros.
-        label_column : Optional[str]
+        label_column : str | None, optional
             Name of the column which are corresponds to the labels of the data.
 
         Raises
@@ -277,7 +277,7 @@ class PrepareData:
 
         Returns
         -------
-        List[str]
+        list[str]
             List of column names which store the embeddings.
 
         Raises
@@ -317,7 +317,7 @@ class PrepareData:
 
         Parameters
         ----------
-        time_feature : Optional[Union[List[str], str]]
+        time_feature : list[str] | str | None
             If is a string, it must be in the list found in
             `_time_feature_choices` attribute. If is a list,
             each item must be a string and it must be in the
@@ -325,7 +325,7 @@ class PrepareData:
 
         Returns
         -------
-        List[str]
+        list[str]
             List of column names which store the time features.
 
         Raises
@@ -388,9 +388,9 @@ class PrepareData:
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : List[str]
+        time_feature : list[str]
             List of time feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
@@ -478,7 +478,10 @@ class PrepareData:
         found in colnames.
         The function returns a dataframe with k rows:
         - If the number of records with id_column == id is less than k, it "pads" the
-        dataframe by adding in empty records (with label = -1 to indicate they're padded).
+        dataframe by adding in empty records (with label = -1 to indicate
+        that they're padded) if `zero_padding=True`, or with either the first
+        (if `pad_from_below=False`) or the last (if `pad_from_below=True`) item
+        in the history if `zero_padding=False`
         - If the number of records with id_column == id is equal to k, it just returns
         the records with id_column == id.
 
@@ -489,9 +492,9 @@ class PrepareData:
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : List[str]
+        time_feature : list[str]
             List of time feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
@@ -533,7 +536,16 @@ class PrepareData:
         pad_from_below: bool,
     ) -> pd.DataFrame:
         """
-        [Private]
+        [Private] For a particular index in .df, the function finds the history
+        for that particular item by matching with its id_column.
+        The function returns a dataframe with k rows:
+        - If the number of records that occurred before this item is less than k,
+        it "pads" the dataframe by adding in empty records (with label = -1 to indicate
+        that they're padded) if `zero_padding=True`, or with either the first
+        (if `pad_from_below=False`) or the last (if `pad_from_below=True`) item
+        in the history if `zero_padding=False`
+        - If the number of records that occurred before this item is equal to k, then
+        it just returns the history
 
         Parameters
         ----------
@@ -542,9 +554,9 @@ class PrepareData:
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : List[str]
+        time_feature : list[str]
             List of time feature column names that we wish to keep from the dataframe.
         index : int
             Which index of the dataframe are we padding.
@@ -653,18 +665,22 @@ class PrepareData:
             - "id": constructs a path of the embeddings of the texts associated to each id
             - "history": constructs a path by looking at the embeddings of the previous texts
               for each text
-        method : str
+        method : str, optional
             How long the path is, default "k_last". Options are:
             - "k_last": specifying the length of the path through the choice of `k` (see below)
             - "max": the length of the path is chosen by looking at the largest number
               of texts associated to an individual id in `.id_column`
-        zero_padding : bool
+        zero_padding : bool, optional
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        k : int
+        k : int, optional
             The requested length of the path, default 5. This is ignored if `method="max"`.
-        time_feature : Optional[Union[List[str], str]]
+        time_feature : list[str] | str | None, optional
             Which time feature(s) to keep. If None, then doesn't keep any.
+        standardise_method : str | None, optional
+            If not None, applies standardisation to the time features, default None. Options:
+            - "standardise": transforms by subtracting the mean and dividing by standard deviation
+            - "normalise": transforms by dividing by the sum
         embeddings : str, optional
             Which embeddings to keep, by default "full". Options:
             - "dim_reduced": dimension reduced embeddings
@@ -769,9 +785,8 @@ class PrepareData:
     def get_torch_time_feature(
         self,
         time_feature: str = "timeline_index",
-        standardise: bool = True,
         standardise_method: str = "standardise",
-    ) -> torch.tensor:
+    ) -> dict[str, torch.tensor | Callable | None]:
         """
         Returns a `torch.tensor` object of the time_feature that is requested
         (the string passed has to be one of the strings in `._time_feature_choices`).
@@ -780,13 +795,17 @@ class PrepareData:
         ----------
         time_feature : str, optional
             Which time feature to obtain `torch.tensor` for, by default "timeline_index".
-        standardise : bool, optional
-            Whether or not to standardise the time feature, by default True.
+        standardise_method : str | None, optional
+            If not None, applies standardisation to the time features, default None. Options:
+            - "standardise": transforms by subtracting the mean and dividing by standard deviation
+            - "normalise": transforms by dividing by the sum
 
         Returns
         -------
-        torch.tensor
-            Time feature.
+        dict[str, torch.tensor | Callable | None]
+            Dictionary where dict["time_feature"] stores the torch.tensor of the time feature,
+            and dict["transform"] is the function to transform new data using the standardisation
+            applied (if `standardise_method` is not None), or None.
 
         Raises
         ------
@@ -802,13 +821,18 @@ class PrepareData:
         if not self.time_features_added:
             self.set_time_features()
 
-        if standardise:
-            feature = self._standardise_pd(
+        if standardise_method is not None:
+            # standardises the time features in .df_padded
+            self.standardise_transform = {}
+            standardise = self._standardise_pd(
                 vec=self.df[time_feature], method=standardise_method
             )
-            return torch.tensor(feature)
+            return {
+                "time_feature": torch.tensor(standardise["standardised_pd"]),
+                "transform": standardise["transform"],
+            }
 
-        return torch.tensor(self.df[time_feature])
+        return {"time_feature": torch.tensor(self.df[time_feature]), "transform": None}
 
     def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
         """

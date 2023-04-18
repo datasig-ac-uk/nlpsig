@@ -44,7 +44,7 @@ class DimReduce:
               Representation Learning for NLP (RepL4NLP- 2019), pages 235-243.)
         n_components : int, optional
             Number of n_components to keep, by default 5
-        dim_reduction_kwargs : Optional[dict], optional
+        dim_reduction_kwargs : dict | None
             Any keywords to be passed into the functions which perform the
             dimensionality reduction, by default None
         """

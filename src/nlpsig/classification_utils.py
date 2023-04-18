@@ -69,7 +69,7 @@ def split_dataset(
 
 class Folds:
     """
-    Class to split the data into different folds based on groups
+    Class to split the data into different folds based on groups.
     """
 
     def __init__(
@@ -87,30 +87,30 @@ class Folds:
         Parameters
         ----------
         x_data : torch.Tensor
-            Features for prediction
+            Features for prediction.
         y_data : torch.Tensor
-            Variable to predict
-        groups : Optional[torch.Tensor]
+            Variable to predict.
+        groups : torch.Tensor | None, optional
             Groups to split by, default None. If None is passed, then does standard KFold,
             otherwise implements GroupShuffleSplit (if shuffle is True),
-            or GroupKFold (if shuffle is False)
+            or GroupKFold (if shuffle is False).
         n_splits : int, optional
-            Number of splits / folds, by default 5
+            Number of splits / folds, by default 5.
         shuffle : bool, optional
-            Whether or not to shuffle the dataset, by default False
+            Whether or not to shuffle the dataset, by default False.
         random_state : int, optional
-            Seed number, by default 42
+            Seed number, by default 42.
 
         Raises
         ------
         ValueError
-            if `n_splits` < 2
+            if `n_splits` < 2.
         ValueError
             if `x_data` and `y_data` do not have the same number of records
-            (number of rows in `x_data` should equal the length of `y_data`)
+            (number of rows in `x_data` should equal the length of `y_data`).
         ValueError
             if `x_data` and `groups` do not have the same number of records
-            (number of rows in `x_data` should equal the length of `groups`)
+            (number of rows in `x_data` should equal the length of `groups`).
         """
         if n_splits < 2:
             msg = "n_splits should be at least 2"
@@ -179,14 +179,14 @@ class Folds:
         fold_index : int
             Which fold to obtain data for
         dev_size : float, optional
-            Proportion of training data to use as validation data, by default 0.33
+            Proportion of training data to use as validation data, by default 0.33.
         as_DataLoader : bool, optional
             Whether or not to return as `torch.utils.data.dataloader.DataLoader` objects
-            ready to be passed into PyTorch model, by default False
-        data_loader_args : _type_, optional
+            ready to be passed into PyTorch model, by default False.
+        data_loader_args : dict | None, optional
             Any keywords to be passed in obtaining the
             `torch.utils.data.dataloader.DataLoader` object,
-            by default {"batch_size": 64, "shuffle": True}
+            by default {"batch_size": 64, "shuffle": True}.
 
         Returns
         -------
@@ -206,7 +206,7 @@ class Folds:
         Raises
         ------
         ValueError
-            if the requested fold_index is not valid
+            if the requested `fold_index` is not valid.
         """
 
         if data_loader_args is None:
@@ -257,7 +257,7 @@ def set_seed(seed: int) -> None:
     Parameters
     ----------
     seed : int
-        Seed number
+        Seed number.
     """
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)

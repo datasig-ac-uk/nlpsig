@@ -29,7 +29,8 @@ def test_df_with_datetime():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
-            "id_col": [rng.integers(0, 5) for i in range(n_entries)],
+            "id_col": [0 for i in range(100)]
+            + [rng.integers(1, 5) for i in range(n_entries - 100)],
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
             "datetime": [rng.choice(list_datetimes) for i in range(n_entries)],
         }
@@ -42,10 +43,28 @@ def test_df_no_time():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
-            "id_col": [rng.integers(0, 5) for i in range(n_entries)],
+            "id_col": [0 for i in range(100)]
+            + [rng.integers(1, 5) for i in range(n_entries - 100)],
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
         }
     )
+
+
+@pytest.fixture()
+def test_df_to_pad():
+    n_entries = 100
+    return pd.DataFrame(
+        {
+            "text": [f"text_{i}" for i in range(n_entries)],
+            "id_col": 0,
+            "label_col": [rng.integers(0, 4) for i in range(n_entries)],
+        }
+    )
+
+
+@pytest.fixture()
+def test_empty_df_to_pad():
+    return pd.DataFrame(columns=["text", "id_col", "label_col"])
 
 
 @pytest.fixture()

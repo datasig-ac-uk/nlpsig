@@ -27,7 +27,10 @@ def test_default_initialisation_datetime(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + 3 + 1,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + len(obj._time_feature_choices)
+        + 1,
     )
     assert obj.pooled_embeddings is None
     assert set(obj._time_feature_choices) == {
@@ -61,7 +64,10 @@ def test_default_initialisation_no_time(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + 1 + 1,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + len(obj._time_feature_choices)
+        + 1,
     )
     assert obj.pooled_embeddings is None
     assert obj._time_feature_choices == ["timeline_index"]
@@ -69,6 +75,98 @@ def test_default_initialisation_no_time(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+
+
+def test_initialisation_with_id_and_label_datetime(
+    test_df_with_datetime,
+    emb,
+):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    pd.testing.assert_frame_equal(obj.original_df, test_df_with_datetime)
+    assert obj.id_column == "id_col"
+    assert obj.label_column == "label_col"
+    assert (obj.embeddings == emb).all()
+    assert obj.embeddings_reduced is None
+    # check that .df is a data frame and check the shape of it
+    assert type(obj.df) == pd.DataFrame
+    # number of columns is:
+    # original number of columns (which include the correct id and label columns) +
+    # number of columns in emb +
+    # 3 time features
+    assert obj.df.shape == (
+        len(obj.original_df.index),
+        len(obj.original_df.columns) + emb.shape[1] + len(obj._time_feature_choices),
+    )
+    assert obj.pooled_embeddings is None
+    assert set(obj._time_feature_choices) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    assert obj.time_features_added
+    assert obj.df_padded is None
+    assert obj.array_padded is None
+    assert obj.pad_method is None
+
+
+def test_initialisation_with_id_and_label_no_time(
+    test_df_no_time,
+    emb,
+):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    pd.testing.assert_frame_equal(obj.original_df, test_df_no_time)
+    assert obj.id_column == "id_col"
+    assert obj.label_column == "label_col"
+    assert (obj.embeddings == emb).all()
+    assert obj.embeddings_reduced is None
+    # check that .df is a data frame and check the shape of it
+    assert type(obj.df) == pd.DataFrame
+    # number of columns is:
+    # original number of columns (which include the correct id and label columns) +
+    # number of columns in emb +
+    # 1 time feature +
+    # 1 dummy id column +
+    # 1 label column
+    assert obj.df.shape == (
+        len(obj.original_df.index),
+        len(obj.original_df.columns) + emb.shape[1] + len(obj._time_feature_choices),
+    )
+    assert obj.pooled_embeddings is None
+    assert obj._time_feature_choices == ["timeline_index"]
+    assert obj.time_features_added
+    assert obj.df_padded is None
+    assert obj.array_padded is None
+    assert obj.pad_method is None
+
+
+def test_initialisation_with_wrong_label(
+    test_df_no_time,
+    emb,
+):
+    PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="fake_label_column",
+    )
+    # with pytest.raises(
+    #     KeyError,
+    #     match="fake_label_column is not a column in original_df.",
+    # ):
+    #     PrepareData(
+    #         original_df=test_df_no_time,
+    #         embeddings=emb,
+    #         id_column="fake_label_column",
+    #     )
 
 
 def test_initialisation_with_reduced_emb_datetime(
@@ -97,7 +195,11 @@ def test_initialisation_with_reduced_emb_datetime(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + emb_reduced.shape[1] + 3 + 1,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + emb_reduced.shape[1]
+        + len(obj._time_feature_choices)
+        + 1,
     )
     assert obj.pooled_embeddings is None
     assert set(obj._time_feature_choices) == {
@@ -135,7 +237,11 @@ def test_initialisation_with_reduced_emb_no_time(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + emb_reduced.shape[1] + 1 + 1,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + emb_reduced.shape[1]
+        + len(obj._time_feature_choices)
+        + 1,
     )
     assert obj.pooled_embeddings is None
     assert obj._time_feature_choices == ["timeline_index"]
@@ -177,7 +283,10 @@ def test_initialisation_with_pooled_emb_datetime(
     # 3 time feature
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + emb_reduced.shape[1] + 3,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + emb_reduced.shape[1]
+        + len(obj._time_feature_choices),
     )
     assert (obj.pooled_embeddings == emb_pooled).all()
     assert set(obj._time_feature_choices) == {
@@ -223,7 +332,10 @@ def test_initialisation_with_pooled_emb_no_time(
     # 1 time feature
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + emb_reduced.shape[1] + 1,
+        len(obj.original_df.columns)
+        + emb.shape[1]
+        + emb_reduced.shape[1]
+        + len(obj._time_feature_choices),
     )
     assert (obj.pooled_embeddings == emb_pooled).all()
     assert obj._time_feature_choices == ["timeline_index"]
@@ -342,7 +454,8 @@ def test_initialisation_with_reduced_emb_diff_len(
     # which does not have same number of rows as original_df
     with pytest.raises(
         ValueError,
-        match="`original_df`, `embeddings` and `embeddings_reduced` should have the same number of rows.",
+        match="`original_df`, `embeddings` and `embeddings_reduced` "
+        "should have the same number of rows.",
     ):
         PrepareData(
             original_df=test_df_with_datetime,

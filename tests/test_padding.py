@@ -1190,3 +1190,40 @@ def test_pad_history_many_history_include_current(test_df_no_time, emb):
     pd.testing.assert_frame_equal(
         padded_df.reset_index(drop=True), df_to_pad.tail(k).reset_index(drop=True)
     )
+
+
+def test_standardise_pd_standardise(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method=="standardise"
+    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
+    standardise = obj._standardise_pd(vec=vec_to_standardise, method="standardise")
+    assert type(standardise) == dict
+    assert type(standardise["standardised_pd"]) == pd.Series
+    pd.testing.assert_series_equal(
+        standardise["standardised_pd"], pd.Series([-1.0, 0.0, 1.0])
+    )
+    pd.testing.assert_series_equal(
+        standardise["transform"](vec_to_standardise), pd.Series([-1.0, 0.0, 1.0])
+    )
+
+
+def test_standardise_pd_normalise(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method=="normalise"
+    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
+    standardise = obj._standardise_pd(vec=vec_to_standardise, method="normalise")
+    assert type(standardise) == dict
+    assert type(standardise["standardised_pd"]) == pd.Series
+    pd.testing.assert_series_equal(
+        standardise["standardised_pd"], pd.Series([1, 2, 3]) / 6
+    )
+    pd.testing.assert_series_equal(
+        standardise["transform"](vec_to_standardise), pd.Series([1, 2, 3]) / 6
+    )
+
+
+def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method that isn't implemented
+    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
+    with pytest.raises(
+        ValueError, match="Method must be either 'standardise' or 'normalise'."
+    ):
+        obj._standardise_pd(vec=vec_to_standardise, method="fake_method")

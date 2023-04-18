@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -104,8 +105,8 @@ class PrepareData:
         self.df = self._set_time_features()
         self.df_padded: pd.DataFrame | None = None
         self.array_padded: np.array | None = None
-        # record method for creating the path
-        self.pad_method = None
+        self.pad_method: str = None
+        self.standardise_transform: dict[str, Callable] | None = None
 
     def _get_modeling_dataframe(self) -> pd.DataFrame:
         """
@@ -595,6 +596,27 @@ class PrepareData:
             pad_from_below=pad_from_below,
         )
 
+    @staticmethod
+    def _standardise_pd(vec: pd.Series, method: str) -> dict[str, pd.Series | Callable]:
+        # standardised pandas series
+        if method not in ["standardise", "normalise"]:
+            raise ValueError("Method must be either 'standardise' or 'normalise'.")
+
+        if method == "standardise":
+            mean = vec.mean()
+            std = vec.std()
+
+            def transform(x):
+                return (x - mean) / std
+
+        elif method == "normalise":
+            sum = vec.sum()
+
+            def transform(x):
+                return x / sum
+
+        return {"standardised_pd": transform(vec), "transform": transform}
+
     def pad(
         self,
         pad_by: str,
@@ -725,10 +747,13 @@ class PrepareData:
 
         if standardise_method is not None:
             # standardises the time features in .df_padded
+            self.standardise_transform = {}
             for tf in time_feature_colnames:
-                self.df_padded[tf] = self._standardise_pd(
+                standardise = self._standardise_pd(
                     vec=self.df_padded[tf], method=standardise_method
                 )
+                self.standardise_transform[tf] = standardise["transform"]
+                self.df_padded[tf] = standardise["standardised_pd"]
 
         if pad_by == "id":
             self.array_padded = np.array(self.df_padded).reshape(
@@ -740,16 +765,6 @@ class PrepareData:
             )
 
         return self.array_padded
-
-    @staticmethod
-    def _standardise_pd(vec: pd.Series, method: str) -> pd.Series:
-        # standardised pandas series
-        if method == "standardise":
-            return (vec - vec.mean()) / vec.std()
-        if method == "normalise":
-            return vec / vec.sum()
-
-        raise ValueError("Method must be either 'standardise' or 'normalise'.")
 
     def get_torch_time_feature(
         self,

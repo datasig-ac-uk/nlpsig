@@ -42,6 +42,7 @@ def test_default_initialisation_datetime(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_default_initialisation_no_time(
@@ -75,6 +76,7 @@ def test_default_initialisation_no_time(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_id_and_label_datetime(
@@ -112,6 +114,7 @@ def test_initialisation_with_id_and_label_datetime(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_id_and_label_no_time(
@@ -147,26 +150,22 @@ def test_initialisation_with_id_and_label_no_time(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_wrong_label(
     test_df_no_time,
     emb,
 ):
-    PrepareData(
-        original_df=test_df_no_time,
-        embeddings=emb,
-        id_column="fake_label_column",
-    )
-    # with pytest.raises(
-    #     KeyError,
-    #     match="fake_label_column is not a column in original_df.",
-    # ):
-    #     PrepareData(
-    #         original_df=test_df_no_time,
-    #         embeddings=emb,
-    #         id_column="fake_label_column",
-    #     )
+    with pytest.raises(
+        KeyError,
+        match="fake_label_column is not a column in original_df.",
+    ):
+        PrepareData(
+            original_df=test_df_no_time,
+            embeddings=emb,
+            label_column="fake_label_column",
+        )
 
 
 def test_initialisation_with_reduced_emb_datetime(
@@ -211,6 +210,7 @@ def test_initialisation_with_reduced_emb_datetime(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_reduced_emb_no_time(
@@ -249,6 +249,7 @@ def test_initialisation_with_reduced_emb_no_time(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_pooled_emb_datetime(
@@ -298,6 +299,7 @@ def test_initialisation_with_pooled_emb_datetime(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_pooled_emb_no_time(
@@ -343,6 +345,7 @@ def test_initialisation_with_pooled_emb_no_time(
     assert obj.df_padded is None
     assert obj.array_padded is None
     assert obj.pad_method is None
+    assert obj.standardise_transform is None
 
 
 def test_initialisation_with_pooled_emb_no_id(

@@ -68,6 +68,11 @@ def test_empty_df_to_pad():
 
 
 @pytest.fixture()
+def vec_to_standardise():
+    return pd.Series([1, 2, 3])
+
+
+@pytest.fixture()
 def emb():
     return rng.random((1000, 1000))
 

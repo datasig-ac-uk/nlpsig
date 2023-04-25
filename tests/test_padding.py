@@ -1454,26 +1454,30 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
         label_column="label_col",
     )
     k = 10
-    time_features = ["timeline_index", "time_encoding"]
-    padded_array = obj.pad(
-        pad_by="id",
-        method="k_last",
-        zero_padding=True,
-        k=k,
-        time_feature=time_features,
-        standardise_method=["standardise", "normalise"],
-        embeddings="full",
-        include_current_embedding=True,
-        pad_from_below=True,
-    )
+    time_features = ["timeline_index", "time_encoding", "time_diff"]
+    # expected standardised vectors
     standardised_vec = obj._standardise_pd(
         vec=obj.df["timeline_index"], method="standardise"
     )["standardised_pd"]
     normalised_vec = obj._standardise_pd(
         vec=obj.df["time_encoding"], method="normalise"
     )["standardised_pd"]
+    none_standardisation_vec = obj.df["time_diff"]
+    # pad and perform standardisation
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature=time_features,
+        standardise_method=["standardise", "normalise", None],
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
     pd.testing.assert_series_equal(obj.df["timeline_index"], standardised_vec)
     pd.testing.assert_series_equal(obj.df["time_encoding"], normalised_vec)
+    pd.testing.assert_series_equal(obj.df["time_diff"], none_standardisation_vec)
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
     ncol = len(time_features) + emb.shape[1] + 1 + 1

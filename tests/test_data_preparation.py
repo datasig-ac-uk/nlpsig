@@ -643,9 +643,22 @@ def test_standardise_pd_minmax(vec_to_standardise, test_df_no_time, emb):
     )
 
 
+def test_standardise_pd_None(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method=="normalise"
+    obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
+    standardise = obj._standardise_pd(vec=vec_to_standardise, method=None)
+    assert type(standardise) == dict
+    assert type(standardise["standardised_pd"]) == pd.Series
+    pd.testing.assert_series_equal(standardise["standardised_pd"], vec_to_standardise)
+    pd.testing.assert_series_equal(
+        standardise["transform"](vec_to_standardise),
+        vec_to_standardise,
+    )
+
+
 def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
     # testing _standardise_pd with method that isn't implemented
-    implemented = ["standardise", "normalise", "minmax"]
+    implemented = ["standardise", "normalise", "minmax", None]
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
     with pytest.raises(
         ValueError, match=re.escape(f"`method` must be in {implemented}.")

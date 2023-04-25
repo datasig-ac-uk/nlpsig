@@ -609,9 +609,11 @@ class PrepareData:
         )
 
     @staticmethod
-    def _standardise_pd(vec: pd.Series, method: str) -> dict[str, pd.Series | Callable]:
+    def _standardise_pd(
+        vec: pd.Series, method: str | None
+    ) -> dict[str, pd.Series | Callable]:
         # standardised pandas series
-        implemented = ["standardise", "normalise", "minmax"]
+        implemented = ["standardise", "normalise", "minmax", None]
         if method not in implemented:
             raise ValueError(f"`method` must be in {implemented}.")
 
@@ -634,6 +636,11 @@ class PrepareData:
 
             def transform(x):
                 return (x - minimum) / (maximum - minimum)
+
+        elif method is None:
+
+            def transform(x):
+                return x
 
         return {"standardised_pd": transform(vec), "transform": transform}
 

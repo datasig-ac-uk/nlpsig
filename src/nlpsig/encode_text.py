@@ -414,7 +414,7 @@ class TextEncoder:
 
     def initialise_transformer(self, force_reload: bool = False, **config_args) -> None:
         """
-        Loads in config and tokenizer. initialises the transformer with random weights
+        Loads in config and tokenizer. Initialises the transformer with random weights
         from transformers.
 
         Parameters
@@ -560,6 +560,8 @@ class TextEncoder:
             "[INFO] Saving the tokenized text for each sentence into `.df['tokens']`..."
         )
 
+        cls_token_avail = self.tokenizer.cls_token is not None
+
         def tokenize_decoder(dataset):
             tokens = []
             for i in range(len(dataset["input_ids"])):
@@ -572,8 +574,8 @@ class TextEncoder:
                     ind = torch.where(torch.tensor(dataset["attention_mask"][i]) == 1)[
                         0
                     ].tolist()
-                # if no tokens (i.e. empty string), then just return the first embedding (CLS token)
-                if len(ind) == 0:
+                # if no tokens (i.e. empty string), then just return the first embedding (CLS token, if available)
+                if len(ind) == 0 and cls_token_avail:
                     ind = [0]
                 tokens.append(
                     self.tokenizer.convert_ids_to_tokens(

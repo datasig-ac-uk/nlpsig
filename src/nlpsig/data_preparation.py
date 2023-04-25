@@ -287,7 +287,7 @@ class PrepareData:
         """
         if embeddings not in ["dim_reduced", "full", "both"]:
             raise ValueError(
-                "Embeddings must be either 'dim_reduced', 'full', or 'both'"
+                "Embeddings must be either 'dim_reduced', 'full', or 'both'."
             )
 
         if embeddings == "dim_reduced":
@@ -408,7 +408,7 @@ class PrepareData:
             if k is not a positive integer.
         """
         if k <= 0:
-            raise ValueError("`k` must be a positive integer")
+            raise ValueError("`k` must be a positive integer.")
         columns = time_feature + colnames + [self.id_column]
         if self.label_column is not None:
             columns += [self.label_column]
@@ -512,7 +512,7 @@ class PrepareData:
             if k is not a positive integer.
         """
         if k < 0:
-            raise ValueError("`k` must be a positive integer")
+            raise ValueError("`k` must be a positive integer.")
         history = self.df[self.df[self.id_column] == id]
 
         return self._pad_dataframe(
@@ -611,8 +611,9 @@ class PrepareData:
     @staticmethod
     def _standardise_pd(vec: pd.Series, method: str) -> dict[str, pd.Series | Callable]:
         # standardised pandas series
-        if method not in ["standardise", "normalise"]:
-            raise ValueError("Method must be either 'standardise' or 'normalise'.")
+        implemented = ["standardise", "normalise", "minmax"]
+        if method not in implemented:
+            raise ValueError(f"`method` must be in {implemented}.")
 
         if method == "standardise":
             mean = vec.mean()
@@ -626,6 +627,13 @@ class PrepareData:
 
             def transform(x):
                 return x / sum
+
+        elif method == "minmax":
+            minimum = vec.min()
+            maximum = vec.max()
+
+            def transform(x):
+                return (x - minimum) / (maximum - minimum)
 
         return {"standardised_pd": transform(vec), "transform": transform}
 
@@ -709,6 +717,7 @@ class PrepareData:
         )
         if pad_by not in ["id", "history"]:
             raise ValueError("`pad_by` must be either 'id' or 'history'.")
+
         self.pad_method = pad_by
 
         # obtain id_column counts
@@ -727,6 +736,28 @@ class PrepareData:
         time_feature_colnames = self._obtain_time_feature_columns(
             time_feature=time_feature
         )
+        if len(time_feature_colnames) > 0:
+            if isinstance(standardise_method, str):
+                standardise_method = [standardise_method] * len(time_feature_colnames)
+            elif isinstance(standardise_method, list) and (
+                len(standardise_method) != len(time_feature_colnames)
+            ):
+                raise ValueError(
+                    "if `standardise_method` is a list, it must have the same length "
+                    f"as the number of time features requested: {len(time_feature_colnames)}."
+                )
+
+        if standardise_method is not None:
+            # standardises the time features in .df
+            self.standardise_transform = {}
+            for i in range(len(time_feature_colnames)):
+                standardise = self._standardise_pd(
+                    vec=self.df[time_feature_colnames[i]], method=standardise_method[i]
+                )
+                self.standardise_transform[time_feature_colnames[i]] = standardise[
+                    "transform"
+                ]
+                self.df[time_feature_colnames[i]] = standardise["standardised_pd"]
 
         # obtain colnames of embeddings
         colnames = self._obtain_colnames(embeddings=embeddings)
@@ -760,16 +791,6 @@ class PrepareData:
                 for index in tqdm(range(len(self.df)))
             ]
             self.df_padded = pd.concat(padded_dfs).reset_index(drop=True)
-
-        if standardise_method is not None:
-            # standardises the time features in .df_padded
-            self.standardise_transform = {}
-            for tf in time_feature_colnames:
-                standardise = self._standardise_pd(
-                    vec=self.df_padded[tf], method=standardise_method
-                )
-                self.standardise_transform[tf] = standardise["transform"]
-                self.df_padded[tf] = standardise["standardised_pd"]
 
         if pad_by == "id":
             self.array_padded = np.array(self.df_padded).reshape(
@@ -815,7 +836,7 @@ class PrepareData:
         """
         if time_feature not in self._time_feature_choices:
             raise ValueError(
-                f"`time_feature` should be in {self._time_feature_choices}"
+                f"`time_feature` should be in {self._time_feature_choices}."
             )
 
         if not self.time_features_added:
@@ -861,11 +882,15 @@ class PrepareData:
         if self.label_column is not None:
             # remove last two columns in the third dimension
             # (which store id_column and label_column)
-            path = torch.from_numpy(self.array_padded[:, :, :-2].astype("float"))
+            path = torch.from_numpy(
+                self.array_padded[:, :, :-2].astype("float")
+            ).float()
         else:
             # there are no labels, so just remove last column in third dimension
             # (which stores id_column)
-            path = torch.from_numpy(self.array_padded[:, :, :-1].astype("float"))
+            path = torch.from_numpy(
+                self.array_padded[:, :, :-1].astype("float")
+            ).float()
 
         if not include_time_features:
             # computes how many time features there are currently
@@ -970,7 +995,7 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
-                emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
+                emb = torch.from_numpy(self.pooled_embeddings.astype("float")).float()
             elif self.pad_method == "history":
                 print(
                     "[INFO] The path was created for each item in the dataframe, "
@@ -989,7 +1014,9 @@ class PrepareData:
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
-                    emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
+                    emb = torch.from_numpy(
+                        self.embeddings_reduced.astype("float")
+                    ).float()
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(
@@ -999,7 +1026,7 @@ class PrepareData:
                             "must equal `.embeddings.shape[0]`."
                         )
                     else:
-                        emb = torch.from_numpy(self.embeddings.astype("float"))
+                        emb = torch.from_numpy(self.embeddings.astype("float")).float()
             repeat_emb = (
                 emb.unsqueeze(2)
                 .repeat(1, 1, self.array_padded.shape[1])

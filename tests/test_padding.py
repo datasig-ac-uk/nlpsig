@@ -1345,3 +1345,140 @@ def test_pad_wrong_method(test_df_no_time, emb):
             include_current_embedding=True,
             pad_from_below=True,
         )
+
+
+def test_pad_by_id_k_last_standardise_standardise(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature="timeline_index",
+        standardise_method="standardise",
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    standardise_vec = obj._standardise_pd(
+        vec=obj.df["timeline_index"], method="standardise"
+    )["standardised_pd"]
+    pd.testing.assert_series_equal(obj.df["timeline_index"], standardise_vec)
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
+
+
+def test_pad_by_id_k_last_standardise_normalise(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature="timeline_index",
+        standardise_method="normalise",
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    normalise_vec = obj._standardise_pd(
+        vec=obj.df["timeline_index"], method="normalise"
+    )["standardised_pd"]
+    pd.testing.assert_series_equal(obj.df["timeline_index"], normalise_vec)
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
+
+
+def test_pad_by_id_k_last_standardise_minmax(test_df_no_time, emb):
+    obj = PrepareData(
+        original_df=test_df_no_time,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature="timeline_index",
+        standardise_method="minmax",
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    minmax_vec = obj._standardise_pd(vec=obj.df["timeline_index"], method="minmax")[
+        "standardised_pd"
+    ]
+    pd.testing.assert_series_equal(obj.df["timeline_index"], minmax_vec)
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
+
+
+def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    time_features = ["timeline_index", "time_encoding"]
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        time_feature=time_features,
+        standardise_method=["standardise", "normalise"],
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    standardised_vec = obj._standardise_pd(
+        vec=obj.df["timeline_index"], method="standardise"
+    )["standardised_pd"]
+    normalised_vec = obj._standardise_pd(
+        vec=obj.df["time_encoding"], method="normalise"
+    )["standardised_pd"]
+    pd.testing.assert_series_equal(obj.df["timeline_index"], standardised_vec)
+    pd.testing.assert_series_equal(obj.df["time_encoding"], normalised_vec)
+    # number of columns is:
+    # number of time features + number of columns in emb + id col + label col
+    ncol = len(time_features) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)

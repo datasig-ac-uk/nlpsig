@@ -18,7 +18,7 @@ def split_dataset(
     x_data: torch.Tensor,
     y_data: torch.Tensor,
     train_size: float = 0.8,
-    valid_size: float | None = 0.5,
+    valid_size: float | None = 0.33,
     shuffle: float = True,
     as_DataLoader: bool = False,
     data_loader_args: dict | None = None,
@@ -28,6 +28,9 @@ def split_dataset(
         data_loader_args = {"batch_size": 64, "shuffle": True}
     if (train_size < 0) or (train_size > 1):
         msg = "train_size must be between 0 and 1"
+        raise ValueError(msg)
+    if valid_size is not None and ((train_size < 0) or (train_size > 1)):
+        msg = "valid_size must be between 0 and 1"
         raise ValueError(msg)
 
     # first split data into train set, test/valid set
@@ -39,9 +42,9 @@ def split_dataset(
     )
 
     if valid_size is not None:
-        # further split the test set into a test, valid set
-        test_index, valid_index = train_test_split(
-            test_index, test_size=valid_size, shuffle=shuffle, random_state=seed
+        # further split the train set into a train, valid set
+        train_index, valid_index = train_test_split(
+            train_index, test_size=valid_size, shuffle=shuffle, random_state=seed
         )
         x_valid = x_data[valid_index]
         y_valid = y_data[valid_index]

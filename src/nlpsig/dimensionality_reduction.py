@@ -95,11 +95,7 @@ class DimReduce:
         if self.method in implemented_methods:
             if self.method == "umap":
                 if self.kwargs is None:
-                    self.kwargs = {
-                        "min_dist": 0.99,
-                        "n_neighbors": 50,
-                        "metric": "cosine",
-                    }
+                    self.kwargs = {}
                 self.reducer = umap.UMAP(
                     n_components=self.n_components,
                     random_state=random_state,

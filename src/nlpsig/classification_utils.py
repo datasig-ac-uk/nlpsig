@@ -55,7 +55,7 @@ class DataSplits:
             raise ValueError(msg)
 
         # first split data into train set, test/valid set
-        train_index, test_index = train_test_split(
+        self.train_index, self.test_index = train_test_split(
             range(len(y_data)),
             test_size=(1 - train_size),
             shuffle=shuffle,
@@ -64,22 +64,23 @@ class DataSplits:
 
         if valid_size is not None:
             # further split the train set into a train, valid set
-            train_index, valid_index = train_test_split(
-                train_index,
+            self.train_index, self.valid_index = train_test_split(
+                self.train_index,
                 test_size=valid_size,
                 shuffle=shuffle,
                 random_state=random_state,
             )
-            self.x_valid = x_data[valid_index]
-            self.y_valid = y_data[valid_index]
+            self.x_valid = x_data[self.valid_index]
+            self.y_valid = y_data[self.valid_index]
         else:
+            self.valid_index = None
             self.x_valid = None
             self.y_valid = None
 
-        self.x_train = x_data[train_index]
-        self.y_train = y_data[train_index]
-        self.x_test = x_data[test_index]
-        self.y_test = y_data[test_index]
+        self.x_train = x_data[self.train_index]
+        self.y_train = y_data[self.train_index]
+        self.x_test = x_data[self.test_index]
+        self.y_test = y_data[self.test_index]
 
     def get_splits(
         self, as_DataLoader: bool = False, data_loader_args: dict | None = None
@@ -228,7 +229,7 @@ class Folds:
     def get_splits(
         self,
         fold_index: int,
-        valid_size: float = 0.33,
+        valid_size: float | None = 0.33,
         as_DataLoader: bool = False,
         data_loader_args: dict | None = None,
     ) -> (
@@ -249,8 +250,9 @@ class Folds:
         ----------
         fold_index : int
             Which fold to obtain data for
-        valid_size : float, optional
+        valid_size : float | None, optional
             Proportion of training data to use as validation data, by default 0.33.
+            If None, will not create a validation set.
         as_DataLoader : bool, optional
             Whether or not to return as `torch.utils.data.dataloader.DataLoader` objects
             ready to be passed into PyTorch model, by default False.
@@ -292,29 +294,39 @@ class Folds:
         # obtain train and test indices for provided fold_index
         train_index = self.fold_indices[fold_index][0]
         test_index = self.fold_indices[fold_index][1]
-        # obtain a validation set from the training set
-        train_index, valid_index = train_test_split(
-            train_index,
-            test_size=valid_size,
-            shuffle=self.shuffle,
-            random_state=self.random_state,
-        )
+
+        if valid_size is not None:
+            # further split the train set into a train, valid set
+            # obtain a validation set from the training set
+            train_index, valid_index = train_test_split(
+                train_index,
+                test_size=valid_size,
+                shuffle=self.shuffle,
+                random_state=self.random_state,
+            )
+            x_valid = self.x_data[valid_index]
+            y_valid = self.y_data[valid_index]
+        else:
+            x_valid = None
+            y_valid = None
 
         x_train = self.x_data[train_index]
         y_train = self.y_data[train_index]
-        x_valid = self.x_data[valid_index]
-        y_valid = self.y_data[valid_index]
         x_test = self.x_data[test_index]
         y_test = self.y_data[test_index]
 
         if as_DataLoader:
             train = TensorDataset(x_train, y_train)
-            valid = TensorDataset(x_valid, y_valid)
             test = TensorDataset(x_test, y_test)
 
             train_loader = DataLoader(dataset=train, **data_loader_args)
-            valid_loader = DataLoader(dataset=valid, **data_loader_args)
             test_loader = DataLoader(dataset=test, **data_loader_args)
+
+            if valid_size is not None:
+                valid = TensorDataset(x_valid, y_valid)
+                valid_loader = DataLoader(dataset=valid, **data_loader_args)
+            else:
+                valid_loader = None
 
             return train_loader, valid_loader, test_loader
         return x_test, y_test, x_valid, y_valid, x_train, y_train

@@ -27,13 +27,21 @@
 [pypi-version]:             https://img.shields.io/pypi/v/nlpsig
 [rtd-badge]:                https://readthedocs.org/projects/nlpsig/badge/?version=latest
 [rtd-link]:                 https://nlpsig.readthedocs.io/en/latest/?badge=latest
-
 <!-- prettier-ignore-end -->
 
-# Installation
+## Installation
 
-In the root directory of this repository, perform a verbose, editable install
-with pip into a new virtual environment:
+In the root directory of this repository, perform a verbose, editable install with pip into a new virtual environment. For example using `conda`:
+
+```bash
+git clone git@github.com:datasig-ac-uk/nlpsig.git
+cd nlpsig
+conda env create
+conda activate nlpsig
+pip install -v -e .
+```
+
+Or with `venv`:
 
 ```bash
 python3 -m venv .venv
@@ -41,14 +49,10 @@ source ./.venv/bin/activate
 pip install -v -e .
 ```
 
-# Development
-
-You can set up a development environment by running:
+* For using within Jupyter, you can create a kernel with:
 
 ```bash
-python3 -m venv .venv
-source ./.venv/bin/activate
-pip install -v -e .[dev]
+python -m ipykernel install --user --name nlpsig
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more information on running the test

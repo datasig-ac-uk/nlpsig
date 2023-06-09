@@ -37,7 +37,7 @@ with pip into a new virtual environment. For example using `conda`:
 ```bash
 git clone git@github.com:datasig-ac-uk/nlpsig.git
 cd nlpsig
-conda env create
+conda create -n nlpsig
 conda activate nlpsig
 pip install -v -e .
 ```

@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -16,10 +18,10 @@ class PrepareData:
         self,
         original_df: pd.DataFrame,
         embeddings: np.array,
-        embeddings_reduced: Optional[np.array] = None,
-        pooled_embeddings: Optional[np.array] = None,
-        id_column: Optional[str] = None,
-        labels_column: Optional[str] = None,
+        embeddings_reduced: np.array | None = None,
+        pooled_embeddings: np.array | None = None,
+        id_column: str | None = None,
+        label_column: str | None = None,
     ):
         """
         Class to prepare dataset for computing signatures.
@@ -30,17 +32,17 @@ class PrepareData:
             Dataset as a pandas dataframe.
         embeddings : np.array
             Embeddings for each of the items in `original_df`.
-        embeddings_reduced : Optional[np.array], optional
+        embeddings_reduced : np.array | None, optional
             Dimension reduced embeddings, by default None.
-        pooled_embeddings : Optional[np.array], optional
+        pooled_embeddings : np.array | None, optional
             Pooled embeddings for each unique id in `id_column`, by default None.
-        id_column : Optional[str]
+        id_column : str | None, optional
             Name of the column which identifies each of the text, e.g.
             - "text_id" (if each item in `original_df` is a word or sentence from a particular text),
             - "user_id" (if each item in `original_df` is a post from a particular user)
             - "timeline_id" (if each item in `original_df` is a post from a particular time)
             If None, it will create a dummy id_column named "dummy_id" and fill with zeros.
-        labels_column : Optional[str]
+        label_column : str | None, optional
             Name of the column which are corresponds to the labels of the data.
 
         Raises
@@ -66,16 +68,19 @@ class PrepareData:
             if original_df.shape[0] != embeddings_reduced.shape[0]:
                 raise ValueError(
                     "`original_df`, `embeddings` and `embeddings_reduced` "
-                    "should have the same number of rows"
+                    "should have the same number of rows."
                 )
+
         self.original_df: pd.DataFrame = original_df
-        self.id_column: Optional[str] = id_column
-        self.label_column: Optional[str] = labels_column
+        self.id_column: str | None = id_column
+        if (label_column is not None) and (label_column not in original_df.columns):
+            raise KeyError(f"{label_column} is not a column in original_df.")
+        self.label_column: str | None = label_column
         # set embeddings
         self.embeddings: np.array = embeddings
-        self.embeddings_reduced: Optional[np.array] = embeddings_reduced
+        self.embeddings_reduced: np.array | None = embeddings_reduced
         # obtain modelling dataframe
-        self.df: Optional[pd.DataFrame] = None
+        self.df: pd.DataFrame | None = None
         self.df = self._get_modeling_dataframe()
         # set pooled embeddings if provided
         if pooled_embeddings is not None:
@@ -84,20 +89,24 @@ class PrepareData:
                     "If provided, `pooled_embeddings` should be a 2-dimensional array."
                 )
             if len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]:
-                raise ValueError(
-                    "If  provided, `pooled_embeddings` should have the same number of "
-                    "rows as there are different ids, i.e. we should have "
-                    "`len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]`."
+                print(
+                    f"[INFO] `len(self.df[self.id_column].unique())`={len(self.df[self.id_column].unique())}"
+                    f" and `pooled_embeddings.shape[0]`={pooled_embeddings.shape[0]}."
                 )
-        self.pooled_embeddings: Optional[np.array] = pooled_embeddings
+                raise ValueError(
+                    "If provided, `pooled_embeddings` should have the same number "
+                    "of rows as there are different ids in the id-column."
+                )
+
+        self.pooled_embeddings: np.array | None = pooled_embeddings
         # obtain time features
-        self._time_feature_choices: List[str] = []
+        self._time_feature_choices: list[str] = []
         self.time_features_added: bool = False
         self.df = self._set_time_features()
-        self.df_padded: Optional[pd.DataFrame] = None
-        self.array_padded: Optional[np.array] = None
-        # record method for creating the path
-        self.pad_method = None
+        self.df_padded: pd.DataFrame | None = None
+        self.array_padded: np.array | None = None
+        self.pad_method: str = None
+        self.standardise_transform: dict[str, Callable] | None = None
 
     def _get_modeling_dataframe(self) -> pd.DataFrame:
         """
@@ -116,49 +125,49 @@ class PrepareData:
         """
         if self.df is not None:
             return self.df
-        else:
-            print("[INFO] Concatenating the embeddings to the dataframe...")
-            print("[INFO] - columns beginning with 'e' denote the full embddings.")
-            embedding_df = pd.DataFrame(
-                self.embeddings,
-                columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
+
+        print("[INFO] Concatenating the embeddings to the dataframe...")
+        print("[INFO] - columns beginning with 'e' denote the full embddings.")
+        embedding_df = pd.DataFrame(
+            self.embeddings,
+            columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
+        )
+
+        if self.embeddings_reduced is not None:
+            print(
+                "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
             )
-            if self.embeddings_reduced is not None:
-                print(
-                    "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
-                )
-                embeddings_reduced_df = pd.DataFrame(
-                    self.embeddings_reduced,
-                    columns=[
-                        f"d{i+1}" for i in range(self.embeddings_reduced.shape[1])
-                    ],
-                )
-                df = pd.concat(
-                    [
-                        self.original_df.reset_index(drop=True),
-                        embeddings_reduced_df,
-                        embedding_df,
-                    ],
-                    axis=1,
-                )
-            else:
-                df = pd.concat(
-                    [self.original_df.reset_index(drop=True), embedding_df],
-                    axis=1,
-                )
-            if self.id_column is None:
-                self.id_column = "dummy_id"
-                print(
-                    f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
-                )
-            if self.id_column not in self.original_df.columns:
-                # set default value to id_column
-                print(
-                    f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
-                    "Adding a new column named '{self.id_column}' of zeros."
-                )
-                df[self.id_column] = 0
-            return df
+            embeddings_reduced_df = pd.DataFrame(
+                self.embeddings_reduced,
+                columns=[f"d{i+1}" for i in range(self.embeddings_reduced.shape[1])],
+            )
+            df = pd.concat(
+                [
+                    self.original_df.reset_index(drop=True),
+                    embeddings_reduced_df,
+                    embedding_df,
+                ],
+                axis=1,
+            )
+        else:
+            df = pd.concat(
+                [self.original_df.reset_index(drop=True), embedding_df],
+                axis=1,
+            )
+        if self.id_column is None:
+            self.id_column = "dummy_id"
+            print(
+                f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
+            )
+        if self.id_column not in self.original_df.columns:
+            # set default value to id_column
+            print(
+                f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
+                f"Adding a new column named '{self.id_column}' of zeros."
+            )
+            df[self.id_column] = 0
+
+        return df
 
     @staticmethod
     def _time_fraction(x: pd.Timestamp) -> float:
@@ -198,7 +207,7 @@ class PrepareData:
         """
         if self.time_features_added:
             print("Time features have already been added.")
-            return
+            return None
         print("[INFO] Adding time feature columns into dataframe in `.df`.")
         if "datetime" in self.df.columns:
             self._time_feature_choices += ["time_encoding", "time_diff"]
@@ -247,14 +256,14 @@ class PrepareData:
         print("[INFO] Adding 'timeline_index' feature...")
         self.df["timeline_index"] = list(
             self.df.groupby(self.id_column)
-            .apply(lambda x: list(range(1, len(x)+1)))
+            .apply(lambda x: list(range(1, len(x) + 1)))
             .explode()
         )
         self.time_features_added = True
 
         return self.df
 
-    def _obtain_colnames(self, embeddings: str) -> List[str]:
+    def _obtain_colnames(self, embeddings: str) -> list[str]:
         """
         [Private] Obtains the column names storing the embeddings.
 
@@ -268,7 +277,7 @@ class PrepareData:
 
         Returns
         -------
-        List[str]
+        list[str]
             List of column names which store the embeddings.
 
         Raises
@@ -278,8 +287,9 @@ class PrepareData:
         """
         if embeddings not in ["dim_reduced", "full", "both"]:
             raise ValueError(
-                "Embeddings must be either 'dim_reduced', 'full', or 'both'"
+                "Embeddings must be either 'dim_reduced', 'full', or 'both'."
             )
+
         if embeddings == "dim_reduced":
             # obtain columns for the dimension reduced embeddings
             # these are columns which start with 'd' and have a number following it
@@ -292,26 +302,30 @@ class PrepareData:
             # add columns for the embeddings
             colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
             colnames += [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
+
         return colnames
 
     def _obtain_time_feature_columns(
         self,
-        time_feature: Optional[Union[List[str], str]],
-    ) -> List[str]:
+        time_feature: list[str] | str | None,
+    ) -> list[str]:
         """
         [Private] Obtains the column names storing the time features requested.
+        If a string or list is passed, it essentially just checks if it is an
+        available time feature that is stored in `_time_feature_choices` and returns
+        the time features in a list.
 
         Parameters
         ----------
-        time_feature : Optional[Union[List[str], str]]
-            If is a string, it must be the list found in
+        time_feature : list[str] | str | None
+            If is a string, it must be in the list found in
             `_time_feature_choices` attribute. If is a list,
             each item must be a string and it must be in the
             list found in `_time_feature_choices` attribute.
 
         Returns
         -------
-        List[str]
+        list[str]
             List of column names which store the time features.
 
         Raises
@@ -321,6 +335,8 @@ class PrepareData:
         ValueError
             if `time_feature` is a list of strings, and one of the items
             is not found in `_time_feature_choices`.
+        TypeError
+            if `time_feature` is neither a string or a list.
         """
         if time_feature is None:
             time_feature = []
@@ -331,31 +347,28 @@ class PrepareData:
                 if time_feature not in self._time_feature_choices:
                     raise ValueError(
                         "If `time_feature` is a string, it must "
-                        + f"be in {self._time_feature_choices}."
+                        f"be in {self._time_feature_choices}."
                     )
-                else:
-                    time_feature = [time_feature]
+                time_feature = [time_feature]
             elif isinstance(time_feature, list):
-                if not all(
-                    [item in self._time_feature_choices for item in time_feature]
-                ):
+                if not all(item in self._time_feature_choices for item in time_feature):
                     raise ValueError(
-                        f"Each item in   should be in {self._time_feature_choices}."
+                        f"Each item in `time_feature` should be in {self._time_feature_choices}."
                     )
             else:
-                raise ValueError(
+                raise TypeError(
                     "`time_feature` must be either None, a string, or a list of strings."
                 )
+
         return time_feature
 
     def _pad_dataframe(
         self,
         df: pd.DataFrame,
         k: int,
-        padding_n: int,
         zero_padding: bool,
-        colnames: List[str],
-        time_feature: List[str],
+        colnames: list[str],
+        time_feature: list[str],
         id: int,
         pad_from_below: bool,
     ) -> pd.DataFrame:
@@ -372,14 +385,12 @@ class PrepareData:
             Dataframe to pad with.
         k : int
             Number of items to keep.
-        padding_n : int
-            Number of entries to pad.
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : List[str]
+        time_feature : list[str]
             List of time feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
@@ -395,16 +406,15 @@ class PrepareData:
         ------
         ValueError
             if k is not a positive integer.
-        ValueError
-            if padding_n is less than or equal to zero, but there aren't enough entries
-            in `df` to take the last `k` entries.
         """
-        if k < 0:
-            raise ValueError("`k` must be a positive integer")
+        if k <= 0:
+            raise ValueError("`k` must be a positive integer.")
         columns = time_feature + colnames + [self.id_column]
         if self.label_column is not None:
             columns += [self.label_column]
-        if padding_n > 0:
+
+        amount_to_pad = k - len(df)
+        if amount_to_pad > 0:
             # need to pad to fill up
             if zero_padding or len(df) == 0:
                 # pad by having zero entries
@@ -413,49 +423,53 @@ class PrepareData:
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id], self.label_column: [-1]},
+                        self.id_column: [id],
+                        self.label_column: [-1],
                     }
                 else:
                     # no label column to add
                     data_dict = {
                         **dict.fromkeys(time_feature, [0]),
                         **{c: [0] for c in colnames},
-                        **{self.id_column: [id]},
+                        self.id_column: [id],
                     }
                 pad = pd.DataFrame(data_dict)
             else:
-                # pad by repeating the latest text
-                pad = df[columns].tail(1)
+                if pad_from_below:
+                    # pad by repeating the latest text
+                    # (as we're padding from below)
+                    pad = df[columns].tail(1)
+                else:
+                    # pad by repeating the first text
+                    # (as we're padding from above)
+                    pad = df[columns].head(1)
+
             if pad_from_below:
                 df_padded = pd.concat(
                     [
                         df[columns],
-                        pd.concat([pad] * padding_n),
+                        pd.concat([pad] * amount_to_pad),
                     ]
                 )
             else:
                 df_padded = pd.concat(
                     [
-                        pd.concat([pad] * padding_n),
+                        pd.concat([pad] * amount_to_pad),
                         df[columns],
                     ]
                 )
+
             return df_padded.reset_index(drop=True)
-        else:
-            if len(df) < k:
-                raise ValueError(
-                    "Requested to not pad, but there aren't enough entries in `df`."
-                )
-            return df[columns].tail(k).reset_index(drop=True)
+
+        return df[columns].tail(k).reset_index(drop=True)
 
     def _pad_id(
         self,
         k: int,
         zero_padding: bool,
-        colnames: List[str],
-        id_counts: pd.Series,
+        colnames: list[str],
+        time_feature: list[str],
         id: int,
-        time_feature: List[str],
         pad_from_below: bool,
     ) -> pd.DataFrame:
         """
@@ -464,7 +478,10 @@ class PrepareData:
         found in colnames.
         The function returns a dataframe with k rows:
         - If the number of records with id_column == id is less than k, it "pads" the
-        dataframe by adding in empty records (with label = -1 to indicate they're padded).
+        dataframe by adding in empty records (with label = -1 to indicate
+        that they're padded) if `zero_padding=True`, or with either the first
+        (if `pad_from_below=False`) or the last (if `pad_from_below=True`) item
+        in the history if `zero_padding=False`
         - If the number of records with id_column == id is equal to k, it just returns
         the records with id_column == id.
 
@@ -475,14 +492,12 @@ class PrepareData:
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        id_counts : pd.Series
-            The number of records in associated to each id_column.
+        time_feature : list[str]
+            List of time feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
-        time_feature : List[str]
-            List of time feature column names that we wish to keep from the dataframe.
         pad_from_below: bool
             If True, will pad the path from below, otherwise pads the path from above.
 
@@ -497,13 +512,12 @@ class PrepareData:
             if k is not a positive integer.
         """
         if k < 0:
-            raise ValueError("`k` must be a positive integer")
+            raise ValueError("`k` must be a positive integer.")
         history = self.df[self.df[self.id_column] == id]
-        padding_n = k - id_counts[id]
+
         return self._pad_dataframe(
             df=history,
             k=k,
-            padding_n=padding_n,
             zero_padding=zero_padding,
             colnames=colnames,
             time_feature=time_feature,
@@ -515,14 +529,23 @@ class PrepareData:
         self,
         k: int,
         zero_padding: bool,
-        colnames: List[str],
+        colnames: list[str],
+        time_feature: list[str],
         index: int,
-        time_feature: List[str],
         include_current_embedding: bool,
         pad_from_below: bool,
     ) -> pd.DataFrame:
         """
-        [Private]
+        [Private] For a particular index in .df, the function finds the history
+        for that particular item by matching with its id_column.
+        The function returns a dataframe with k rows:
+        - If the number of records that occurred before this item is less than k,
+        it "pads" the dataframe by adding in empty records (with label = -1 to indicate
+        that they're padded) if `zero_padding=True`, or with either the first
+        (if `pad_from_below=False`) or the last (if `pad_from_below=True`) item
+        in the history if `zero_padding=False`
+        - If the number of records that occurred before this item is equal to k, then
+        it just returns the history
 
         Parameters
         ----------
@@ -531,12 +554,12 @@ class PrepareData:
         zero_padding : bool
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        colnames : List[str]
+        colnames : list[str]
             List of column names that we wish to keep from the dataframe.
+        time_feature : list[str]
+            List of time feature column names that we wish to keep from the dataframe.
         index : int
             Which index of the dataframe are we padding.
-        time_feature : List[str]
-            List of time feature column names that we wish to keep from the dataframe.
         pad_from_below: bool
             If True, will pad the path from below, otherwise pads the path from above.
 
@@ -551,16 +574,18 @@ class PrepareData:
         ValueError
             if k is not a positive integer.
         ValueError
-            if index is outside the range of indicies of the dataframe ([0, 1, ..., len(.df)]).
+            if index is outside the range of indices of the dataframe ([0, 1, ..., len(.df)]).
         """
         if k < 0:
             raise ValueError("`k` must be a positive integer.")
         if index not in range(len(self.df)):
             raise ValueError("`index` is outside of [0, 1, ..., len(.df)].")
+
         # look at particular text at a given index
         text = self.df.iloc[index]
         id = text[self.id_column]
         timeline_index = text["timeline_index"]
+
         # obtain history for the piece of text
         if include_current_embedding:
             history = self.df[
@@ -572,11 +597,10 @@ class PrepareData:
                 (self.df[self.id_column] == id)
                 & (self.df["timeline_index"] < timeline_index)
             ]
-        padding_n = k - len(history)
+
         return self._pad_dataframe(
             df=history,
             k=k,
-            padding_n=padding_n,
             zero_padding=zero_padding,
             colnames=colnames,
             time_feature=time_feature,
@@ -584,15 +608,50 @@ class PrepareData:
             pad_from_below=pad_from_below,
         )
 
+    @staticmethod
+    def _standardise_pd(
+        vec: pd.Series, method: str | None
+    ) -> dict[str, pd.Series | Callable]:
+        # standardised pandas series
+        implemented = ["standardise", "normalise", "minmax", None]
+        if method not in implemented:
+            raise ValueError(f"`method` must be in {implemented}.")
+
+        if method == "standardise":
+            mean = vec.mean()
+            std = vec.std()
+
+            def transform(x):
+                return (x - mean) / std
+
+        elif method == "normalise":
+            sum = vec.sum()
+
+            def transform(x):
+                return x / sum
+
+        elif method == "minmax":
+            minimum = vec.min()
+            maximum = vec.max()
+
+            def transform(x):
+                return (x - minimum) / (maximum - minimum)
+
+        elif method is None:
+
+            def transform(x):
+                return x
+
+        return {"standardised_pd": transform(vec), "transform": transform}
+
     def pad(
         self,
         pad_by: str,
         method: str = "k_last",
         zero_padding: bool = True,
         k: int = 5,
-        time_feature: Optional[Union[List[str], str]] = None,
-        standardise_time_feature: bool = True,
-        standardise_method: str = "standardise",
+        time_feature: list[str] | str | None = None,
+        standardise_method: str | None = None,
         embeddings: str = "full",
         include_current_embedding: bool = True,
         pad_from_below: bool = True,
@@ -621,18 +680,22 @@ class PrepareData:
             - "id": constructs a path of the embeddings of the texts associated to each id
             - "history": constructs a path by looking at the embeddings of the previous texts
               for each text
-        method : str
+        method : str, optional
             How long the path is, default "k_last". Options are:
             - "k_last": specifying the length of the path through the choice of `k` (see below)
             - "max": the length of the path is chosen by looking at the largest number
               of texts associated to an individual id in `.id_column`
-        zero_padding : bool
+        zero_padding : bool, optional
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
-        k : int
+        k : int, optional
             The requested length of the path, default 5. This is ignored if `method="max"`.
-        time_feature : Optional[Union[List[str], str]]
+        time_feature : list[str] | str | None, optional
             Which time feature(s) to keep. If None, then doesn't keep any.
+        standardise_method : str | None, optional
+            If not None, applies standardisation to the time features, default None. Options:
+            - "standardise": transforms by subtracting the mean and dividing by standard deviation
+            - "normalise": transforms by dividing by the sum
         embeddings : str, optional
             Which embeddings to keep, by default "full". Options:
             - "dim_reduced": dimension reduced embeddings
@@ -661,6 +724,9 @@ class PrepareData:
         )
         if pad_by not in ["id", "history"]:
             raise ValueError("`pad_by` must be either 'id' or 'history'.")
+
+        self.pad_method = pad_by
+
         # obtain id_column counts
         id_counts = self.df[self.id_column].value_counts(sort=False)
         # determine padding length
@@ -671,81 +737,84 @@ class PrepareData:
             # let k be the largest number of items associated to an id
             k = id_counts.max()
         else:
-            raise ValueError("Method must be either 'k_last' or 'max'.")
+            raise ValueError("`method` must be either 'k_last' or 'max'.")
+
         # obtain time feature colnames
         time_feature_colnames = self._obtain_time_feature_columns(
             time_feature=time_feature
         )
+        if len(time_feature_colnames) > 0:
+            if isinstance(standardise_method, str):
+                standardise_method = [standardise_method] * len(time_feature_colnames)
+            elif isinstance(standardise_method, list) and (
+                len(standardise_method) != len(time_feature_colnames)
+            ):
+                raise ValueError(
+                    "if `standardise_method` is a list, it must have the same length "
+                    f"as the number of time features requested: {len(time_feature_colnames)}."
+                )
+
+        if standardise_method is not None:
+            # standardises the time features in .df
+            self.standardise_transform = {}
+            for i in range(len(time_feature_colnames)):
+                standardise = self._standardise_pd(
+                    vec=self.df[time_feature_colnames[i]], method=standardise_method[i]
+                )
+                self.standardise_transform[time_feature_colnames[i]] = standardise[
+                    "transform"
+                ]
+                self.df[time_feature_colnames[i]] = standardise["standardised_pd"]
+
         # obtain colnames of embeddings
         colnames = self._obtain_colnames(embeddings=embeddings)
+
         if pad_by == "id":
             # pad each of the ids in id_column and store them in a list
-            self.pad_method = "id"
             padded_dfs = [
                 self._pad_id(
                     k=k,
                     zero_padding=zero_padding,
                     colnames=colnames,
-                    id_counts=id_counts,
-                    id=id,
                     time_feature=time_feature_colnames,
+                    id=id,
                     pad_from_below=pad_from_below,
                 )
                 for id in tqdm(id_counts.index)
             ]
             self.df_padded = pd.concat(padded_dfs).reset_index(drop=True)
-            if standardise_time_feature:
-                # standardises the time features in .df_padded
-                for tf in time_feature_colnames:
-                    self.df_padded[tf] = self._standardise_pd(
-                        vec=self.df_padded[tf], method=standardise_method
-                    )
-            self.array_padded = np.array(self.df_padded).reshape(
-                len(id_counts), k, len(self.df_padded.columns)
-            )
         elif pad_by == "history":
             # pad each of the ids in id_column and store them in a list
-            self.pad_method = "history"
             padded_dfs = [
                 self._pad_history(
                     k=k,
                     zero_padding=zero_padding,
                     colnames=colnames,
-                    index=index,
                     time_feature=time_feature_colnames,
+                    index=index,
                     include_current_embedding=include_current_embedding,
                     pad_from_below=pad_from_below,
                 )
                 for index in tqdm(range(len(self.df)))
             ]
             self.df_padded = pd.concat(padded_dfs).reset_index(drop=True)
-            if standardise_time_feature:
-                # standardises the time features in .df_padded
-                for tf in time_feature_colnames:
-                    self.df_padded[tf] = self._standardise_pd(
-                        vec=self.df_padded[tf], method=standardise_method
-                    )
+
+        if pad_by == "id":
+            self.array_padded = np.array(self.df_padded).reshape(
+                len(id_counts), k, len(self.df_padded.columns)
+            )
+        elif pad_by == "history":
             self.array_padded = np.array(self.df_padded).reshape(
                 len(self.df), k, len(self.df_padded.columns)
             )
-        return self.array_padded
 
-    @staticmethod
-    def _standardise_pd(vec: pd.Series, method: str) -> pd.Series:
-        # standardised pandas series
-        if method == "standardise":
-            return (vec - vec.mean()) / vec.std()
-        elif method == "normalise":
-            return vec / vec.sum()
-        else:
-            raise ValueError("Method must be either 'standardise' or 'normalise'.")
+        return self.array_padded
 
     def get_torch_time_feature(
         self,
         time_feature: str = "timeline_index",
-        standardise: bool = True,
         standardise_method: str = "standardise",
-    ) -> torch.tensor:
+    ) -> dict[str, torch.tensor | Callable | None]:
         """
         Returns a `torch.tensor` object of the time_feature that is requested
         (the string passed has to be one of the strings in `._time_feature_choices`).
@@ -754,13 +823,17 @@ class PrepareData:
         ----------
         time_feature : str, optional
             Which time feature to obtain `torch.tensor` for, by default "timeline_index".
-        standardise : bool, optional
-            Whether or not to standardise the time feature, by default True.
+        standardise_method : str | None, optional
+            If not None, applies standardisation to the time features, default None. Options:
+            - "standardise": transforms by subtracting the mean and dividing by standard deviation
+            - "normalise": transforms by dividing by the sum
 
         Returns
         -------
-        torch.tensor
-            Time feature.
+        dict[str, torch.tensor | Callable | None]
+            Dictionary where dict["time_feature"] stores the torch.tensor of the time feature,
+            and dict["transform"] is the function to transform new data using the standardisation
+            applied (if `standardise_method` is not None), or None.
 
         Raises
         ------
@@ -770,17 +843,24 @@ class PrepareData:
         """
         if time_feature not in self._time_feature_choices:
             raise ValueError(
-                f"`time_feature` should be in {self._time_feature_choices}"
+                f"`time_feature` should be in {self._time_feature_choices}."
             )
+
         if not self.time_features_added:
             self.set_time_features()
-        if standardise:
-            feature = self._standardise_pd(
+
+        if standardise_method is not None:
+            # standardises the time features in .df_padded
+            self.standardise_transform = {}
+            standardise = self._standardise_pd(
                 vec=self.df[time_feature], method=standardise_method
             )
-            return torch.tensor(feature)
-        else:
-            return torch.tensor(self.df[time_feature])
+            return {
+                "time_feature": torch.tensor(standardise["standardised_pd"]),
+                "transform": standardise["transform"],
+            }
+
+        return {"time_feature": torch.tensor(self.df[time_feature]), "transform": None}
 
     def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
         """
@@ -804,15 +884,21 @@ class PrepareData:
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
+
         # first strip away the id_column and label_column (if exists)
         if self.label_column is not None:
             # remove last two columns in the third dimension
             # (which store id_column and label_column)
-            path = torch.from_numpy(self.array_padded[:, :, :-2].astype("float"))
+            path = torch.from_numpy(
+                self.array_padded[:, :, :-2].astype("float")
+            ).float()
         else:
             # there are no labels, so just remove last column in third dimension
             # (which stores id_column)
-            path = torch.from_numpy(self.array_padded[:, :, :-1].astype("float"))
+            path = torch.from_numpy(
+                self.array_padded[:, :, :-1].astype("float")
+            ).float()
+
         if not include_time_features:
             # computes how many time features there are currently
             # (which occur in the first n_time_features columns)
@@ -821,6 +907,7 @@ class PrepareData:
             )
             # removes any time features (if they're present)
             path = path[:, :, n_time_features:]
+
         return path
 
     def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
@@ -843,12 +930,10 @@ class PrepareData:
                 raise ValueError(
                     "There were no reduced embeddings passed into the class."
                 )
-            else:
-                colnames = [
-                    col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)
-                ]
+            colnames = [col for col in self.df.columns if re.match(r"^d\w*[0-9]", col)]
         else:
             colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
+
         return torch.tensor(self.df[colnames].values)
 
     def get_torch_path_for_SDSN(
@@ -857,7 +942,7 @@ class PrepareData:
         include_time_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> Tuple[torch.tensor, int]:
+    ) -> tuple[torch.tensor, int]:
         """
         Returns a `torch.tensor` object that can be passed into `StackedDeepSigNet` model.
 
@@ -871,7 +956,7 @@ class PrepareData:
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
             network in the `StackedDeepSigNet` model.
-            If we created a path for each item in the dataset, we will concatentate
+            If we created a path for each item in the dataset, we will concatenate
             the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
             the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
             If we created a path for each id in `.id_column`, then we concatenate
@@ -917,8 +1002,7 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
-                else:
-                    emb = torch.from_numpy(self.pooled_embeddings.astype("float"))
+                emb = torch.from_numpy(self.pooled_embeddings.astype("float")).float()
             elif self.pad_method == "history":
                 print(
                     "[INFO] The path was created for each item in the dataframe, "
@@ -930,15 +1014,16 @@ class PrepareData:
                         raise ValueError(
                             "There were no reduced embeddings passed into the class."
                         )
-                    elif self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
+                    if self.array_padded.shape[0] != self.embeddings_reduced.shape[0]:
                         raise ValueError(
                             "If want to include reduced embeddings in the FFN input, the path "
                             "(found in `.array_padded`) must have the same number of "
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
-                    else:
-                        emb = torch.from_numpy(self.embeddings_reduced.astype("float"))
+                    emb = torch.from_numpy(
+                        self.embeddings_reduced.astype("float")
+                    ).float()
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(
@@ -948,7 +1033,7 @@ class PrepareData:
                             "must equal `.embeddings.shape[0]`."
                         )
                     else:
-                        emb = torch.from_numpy(self.embeddings.astype("float"))
+                        emb = torch.from_numpy(self.embeddings.astype("float")).float()
             repeat_emb = (
                 emb.unsqueeze(2)
                 .repeat(1, 1, self.array_padded.shape[1])

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import matplotlib.pyplot as plt
 import numpy as np
 from distinctipy import colorsets
@@ -10,7 +12,7 @@ class PlotEmbedding:
 
     def __init__(self, x_data: np.array, y_data: np.array) -> None:
         """
-        Class to visualise word or sentence embeddings
+        Class to visualise word or sentence embeddings.
 
         Parameters
         ----------
@@ -25,22 +27,26 @@ class PlotEmbedding:
 
     def plt_2d(
         self,
-        embed_args: dict = {"method": "pca", "dim": 2},
-        line_args: dict = {"marker": "o", "alpha": 0.3},
+        embed_args: dict | None = None,
+        line_args: dict | None = None,
     ) -> None:
         """
-        Plots the embedding in 2d space after first performing dimension reduction
+        Plots the embedding in 2d space after first performing dimension reduction.
 
         Parameters
         ----------
-        embed_args : _type_, optional
+        embed_args : dict | None, optional
             Any keywords to be passed into the functions which perform
-            the dimensionality reduction, by default {"method": "pca", "dim": 2}
-        line_args : _type_, optional
+            the dimensionality reduction, by default {"method": "pca", "dim": 2}.
+        line_args : dict | None, optional
             Any keywords to be passed into the functions which plots the embeddings
             (arguments for `matplotlib.pyplot.scatter()`),
-            by default {"marker": "o", "alpha": 0.3}
+            by default {"marker": "o", "alpha": 0.3}.
         """
+        if embed_args is None:
+            embed_args = {"method": "pca", "dim": 2}
+        if line_args is None:
+            line_args = {"marker": "o", "alpha": 0.3}
         assert embed_args["dim"] >= 2, "dim in embed_args should be >= 2"
         self.embedding_dim_reduce(**embed_args)
         colors = colorsets.get_colors()[0 : len(np.unique(self.y_data.astype(int)))]
@@ -63,29 +69,29 @@ class PlotEmbedding:
         random_state: int = 42,
     ) -> None:
         """
-        Performs dimension reduction to the data and adds reduced embeddings to .embed
+        Performs dimension reduction to the data and adds reduced embeddings to .embed.
 
         Parameters
         ----------
         method : str, optional
-            Which dimensionality reduction technique to use, by default "pca"
-            Options are
-            - "pca" (PCA): implented using scikit-learn
+            Which dimensionality reduction technique to use, by default "pca".
+            Options:
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         dim : int, optional
-            Number of components to keep, by default 3
+            Number of components to keep, by default 3.
         overwrite : bool, optional
-            Whether or not to overwrite current implemented embedding, by default False
+            Whether or not to overwrite current implemented embedding, by default False.
         random_state : int, optional
-            Seed number, by default 42
+            Seed number, by default 42.
 
         Raises
         ------
         NotImplementedError
             if `method` is not one of the implemented methods
             Options are
-            - "pca" (PCA): implented using scikit-learn
+            - "pca" (PCA): implemented using scikit-learn
             - "umap" (UMAP): implemented using `umap-learn` package
             - "tsne" (TSNE): implemented using scikit-learn
         """
@@ -93,7 +99,7 @@ class PlotEmbedding:
         if (not overwrite) and (embed_name in self.embed):
             print(
                 f"[INFO] {method} with dim={dim} is already calculated. "
-                + "You can set overwrite = True to recompute"
+                "You can set overwrite = True to recompute"
             )
             return
         implemented_methods = ["pca", "umap", "tsne"]
@@ -127,6 +133,6 @@ class PlotEmbedding:
         else:
             raise NotImplementedError(
                 f"{method} to reduce dimensions of embeddings "
-                + "is not implemented. Try one of the following: "
-                + f"{', '.join(implemented_methods)}"
+                "is not implemented. Try one of the following: "
+                f"{', '.join(implemented_methods)}"
             )

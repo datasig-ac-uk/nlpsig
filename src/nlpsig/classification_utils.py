@@ -47,40 +47,48 @@ class DataSplits:
         random_state : int, optional
             Seed number, by default 42.
         """
+        if x_data.shape[0] != y_data.shape[0]:
+            msg = (
+                "x_data and y_data do not have compatible shapes "
+                "(need to have same number of samples)"
+            )
+            raise ValueError(msg)
         if (train_size < 0) or (train_size > 1):
             msg = "train_size must be between 0 and 1"
             raise ValueError(msg)
-        if valid_size is not None and ((train_size < 0) or (train_size > 1)):
+        if valid_size is not None and ((valid_size < 0) or (valid_size > 1)):
             msg = "valid_size must be between 0 and 1"
             raise ValueError(msg)
 
+        self.x_data = x_data
+        self.y_data = y_data
+        self.shuffle = shuffle
+        if self.shuffle:
+            self.random_state = random_state
+        else:
+            self.random_state = None
+
         # first split data into train set, test/valid set
-        self.train_index, self.test_index = train_test_split(
-            range(len(y_data)),
+        train_index, test_index = train_test_split(
+            range(len(self.y_data)),
             test_size=(1 - train_size),
-            shuffle=shuffle,
-            random_state=random_state,
+            shuffle=self.shuffle,
+            random_state=self.random_state,
         )
 
         if valid_size is not None:
             # further split the train set into a train, valid set
-            self.train_index, self.valid_index = train_test_split(
-                self.train_index,
+            train_index, valid_index = train_test_split(
+                train_index,
                 test_size=valid_size,
-                shuffle=shuffle,
-                random_state=random_state,
+                shuffle=self.shuffle,
+                random_state=self.random_state,
             )
-            self.x_valid = x_data[self.valid_index]
-            self.y_valid = y_data[self.valid_index]
         else:
-            self.valid_index = None
-            self.x_valid = None
-            self.y_valid = None
+            valid_index = None
 
-        self.x_train = x_data[self.train_index]
-        self.y_train = y_data[self.train_index]
-        self.x_test = x_data[self.test_index]
-        self.y_test = y_data[self.test_index]
+        # store indices
+        self.indices = (train_index, valid_index, test_index)
 
     def get_splits(
         self, as_DataLoader: bool = False, data_loader_args: dict | None = None
@@ -106,36 +114,54 @@ class DataSplits:
           - Second element is validation dataset
           - Third element is testing dataset
         - If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
-          - First element is features for testing dataset
-          - Second element is labels for testing dataset
-          - First element is features for validation dataset
-          - Second element is labels for validation dataset
           - First element is features for training dataset
           - Second element is labels for training dataset
+          - First element is features for validation dataset
+          - Second element is labels for validation dataset
+          - First element is features for testing dataset
+          - Second element is labels for testing dataset
         """
         if data_loader_args is None:
             data_loader_args = {"batch_size": 64, "shuffle": True}
 
+        # obtain validation set
+        if self.indices[1] is not None:
+            x_valid = self.x_data[self.indices[1]]
+            y_valid = self.y_data[self.indices[1]]
+        else:
+            x_valid = None
+            y_valid = None
+
+        # obtain training set
+        x_train = self.x_data[self.indices[0]]
+        y_train = self.y_data[self.indices[0]]
+
+        # obtain test set
+        x_test = self.x_data[self.indices[2]]
+        y_test = self.y_data[self.indices[2]]
+
         if as_DataLoader:
+            # return datasets as DataLoader objects if requested
             if self.x_valid is not None:
-                valid = TensorDataset(self.x_valid, self.y_valid)
+                valid = TensorDataset(x_valid, y_valid)
                 valid_loader = DataLoader(dataset=valid, **data_loader_args)
             else:
                 valid_loader = None
 
-            train = TensorDataset(self.x_train, self.y_train)
-            test = TensorDataset(self.x_test, self.y_test)
+            train = TensorDataset(x_train, y_train)
+            test = TensorDataset(x_test, y_test)
             train_loader = DataLoader(dataset=train, **data_loader_args)
             test_loader = DataLoader(dataset=test, **data_loader_args)
 
             return train_loader, valid_loader, test_loader
+
         return (
-            self.x_test,
-            self.y_test,
-            self.x_valid,
-            self.y_valid,
-            self.x_train,
-            self.y_train,
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            x_test,
+            y_test,
         )
 
 
@@ -150,6 +176,7 @@ class Folds:
         y_data: torch.Tensor,
         groups: torch.Tensor | None = None,
         n_splits: int = 5,
+        valid_size: float | None = 0.33,
         shuffle: bool = False,
         random_state: int = 42,
     ):
@@ -168,6 +195,9 @@ class Folds:
             or GroupKFold (if shuffle is False).
         n_splits : int, optional
             Number of splits / folds, by default 5.
+        valid_size : float | None, optional
+            Proportion of training data to use as validation data, by default 0.33.
+            If None, will not create a validation set.
         shuffle : bool, optional
             Whether or not to shuffle the dataset, by default False.
         random_state : int, optional
@@ -199,6 +229,9 @@ class Folds:
                 "(need to have same number of samples)"
             )
             raise ValueError(msg)
+        if valid_size is not None and ((valid_size < 0) or (valid_size > 1)):
+            msg = "valid_size must be between 0 and 1"
+            raise ValueError(msg)
 
         self.x_data = x_data
         self.y_data = y_data
@@ -209,6 +242,7 @@ class Folds:
             self.random_state = random_state
         else:
             self.random_state = None
+
         if self.groups is not None:
             if self.shuffle:
                 # GroupShuffleSplit does not guarantee that every group is in a test group
@@ -224,12 +258,32 @@ class Folds:
                 shuffle=self.shuffle,
                 random_state=self.random_state,
             )
-        self.fold_indices = list(self.fold.split(X=x_data, groups=groups))
+
+        # obtain fold indices
+        self.fold_indices = list(self.fold.split(X=self.x_data, groups=self.groups))
+
+        # make the validation sets within the indices
+        for k in range(self.n_splits):
+            train_index = self.fold_indices[k][0].tolist()
+            test_index = self.fold_indices[k][1].tolist()
+
+            if valid_size is not None:
+                # further split the train set into a train, valid set
+                train_index, valid_index = train_test_split(
+                    train_index,
+                    test_size=valid_size,
+                    shuffle=self.shuffle,
+                    random_state=self.random_state,
+                )
+            else:
+                valid_index = None
+
+            # store indices
+            self.fold_indices[k] = (train_index, valid_index, test_index)
 
     def get_splits(
         self,
         fold_index: int,
-        valid_size: float | None = 0.33,
         as_DataLoader: bool = False,
         data_loader_args: dict | None = None,
     ) -> (
@@ -250,9 +304,6 @@ class Folds:
         ----------
         fold_index : int
             Which fold to obtain data for
-        valid_size : float | None, optional
-            Proportion of training data to use as validation data, by default 0.33.
-            If None, will not create a validation set.
         as_DataLoader : bool, optional
             Whether or not to return as `torch.utils.data.dataloader.DataLoader` objects
             ready to be passed into PyTorch model, by default False.
@@ -269,67 +320,71 @@ class Folds:
           - Second element is validation dataset
           - Third element is testing dataset
         - If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
-          - First element is features for testing dataset
-          - Second element is labels for testing dataset
-          - First element is features for validation dataset
-          - Second element is labels for validation dataset
           - First element is features for training dataset
           - Second element is labels for training dataset
+          - First element is features for validation dataset
+          - Second element is labels for validation dataset
+          - First element is features for testing dataset
+          - Second element is labels for testing dataset
 
         Raises
         ------
         ValueError
-            if the requested `fold_index` is not valid.
+            if the requested `fold_index` is not valid (out of range).
         """
-
         if data_loader_args is None:
             data_loader_args = {"batch_size": 64, "shuffle": True}
-
         if fold_index not in list(range(self.n_splits)):
             msg = (
                 f"There are {self.n_splits} folds, so "
                 f"fold_index must be in {list(range(self.n_splits))}"
             )
             raise ValueError(msg)
+
         # obtain train and test indices for provided fold_index
         train_index = self.fold_indices[fold_index][0]
-        test_index = self.fold_indices[fold_index][1]
+        valid_index = self.fold_indices[fold_index][1]
+        test_index = self.fold_indices[fold_index][2]
 
-        if valid_size is not None:
-            # further split the train set into a train, valid set
-            # obtain a validation set from the training set
-            train_index, valid_index = train_test_split(
-                train_index,
-                test_size=valid_size,
-                shuffle=self.shuffle,
-                random_state=self.random_state,
-            )
+        # obtain validation set
+        if valid_index is not None:
             x_valid = self.x_data[valid_index]
             y_valid = self.y_data[valid_index]
         else:
             x_valid = None
             y_valid = None
 
+        # obtain training set
         x_train = self.x_data[train_index]
         y_train = self.y_data[train_index]
+
+        # obtain test set
         x_test = self.x_data[test_index]
         y_test = self.y_data[test_index]
 
         if as_DataLoader:
-            train = TensorDataset(x_train, y_train)
-            test = TensorDataset(x_test, y_test)
-
-            train_loader = DataLoader(dataset=train, **data_loader_args)
-            test_loader = DataLoader(dataset=test, **data_loader_args)
-
-            if valid_size is not None:
+            # return datasets as DataLoader objects if requested
+            if valid_index is not None:
                 valid = TensorDataset(x_valid, y_valid)
                 valid_loader = DataLoader(dataset=valid, **data_loader_args)
             else:
                 valid_loader = None
 
+            train = TensorDataset(x_train, y_train)
+            test = TensorDataset(x_test, y_test)
+            train_loader = DataLoader(dataset=train, **data_loader_args)
+            test_loader = DataLoader(dataset=test, **data_loader_args)
+
             return train_loader, valid_loader, test_loader
-        return x_test, y_test, x_valid, y_valid, x_train, y_train
+
+        return (
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            x_test,
+            y_test,
+        )
 
 
 def set_seed(seed: int) -> None:

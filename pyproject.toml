@@ -76,9 +76,11 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
     "error",
-    "ignore:Tensorflow not installed; ParametricUMAP will be unavailable:ImportWarning",  # umap
-    "ignore:pkg_resources is deprecated as an API:DeprecationWarning",  # umap
+    "ignore:Tensorflow not installed; ParametricUMAP will be unavailable:ImportWarning", # umap
+    "ignore:pkg_resources is deprecated as an API:DeprecationWarning", # umap
     "ignore:Deprecated call to *:DeprecationWarning",
+    "ignore:numba.core.errors.NumbaDeprecationWarning", # umap using numba
+    "ignore:numba.core.errors.NumbaPendingDeprecationWarning", # umap using numba
 ]
 log_cli_level = "INFO"
 testpaths = [

@@ -1029,7 +1029,8 @@ class TextEncoder:
     def split_dataset(
         self,
         train_size: float = 0.8,
-        valid_size: float | None = 0.5,
+        valid_size: float | None = 0.33,
+        indices: tuple[list[int], list[int], list[int]] | None = None,
         seed: int = 42,
     ) -> DatasetDict:
         """
@@ -1039,11 +1040,19 @@ class TextEncoder:
         ----------
         train_size : float, optional
             How to split the initial dataset into train, test/validation, by default 0.8.
+            Ignored if indices are passed.
         valid_size : float | None, optional
-            How to split the remaining dataset after the first split, by default 0.5.
-            For example, if the size of the dataset is N=100, and we have `train_size=0.8`,
-            `valid_size=0.5`, the training set will have 80 samples, the validation set
-            will have 10 samples and the test set will have 10 samples.
+            Proportion of training data to use as validation data, by default 0.33.
+            If None, will not create a validation set.
+            Ignored if indices are passed.
+        indices : tuple[list[int], list[int] | None, list[int]] | None, optional
+            Train, validation, test indices to use. If passed, will split the data
+            according to these indices rather than splitting it within the method
+            using the train_size and valid_size provided.
+            First item in the tuple should be the indices for the training set,
+            second item should be the indices for the validaton set (this could
+            be None if no validation set is required), and third item should be
+            indices for the test set.
         seed : int, optional
             Seed for splitting, by default 42.
 
@@ -1060,42 +1069,62 @@ class TextEncoder:
             )
             return self.dataset_split
 
-        if valid_size is None:
-            print(
-                "[INFO] Splitting up dataset into train / test sets, "
-                "and saving to `.dataset_split`."
-            )
-        else:
-            print(
-                "[INFO] Splitting up dataset into train / validation / test sets, "
-                "and saving to `.dataset_split`."
-            )
+        if indices is not None:
+            # indices are provided, so use these to split the dataset
+            if not isinstance(indices, tuple):
+                msg = "if indices are provided, it must be a tuple of length 3"
+                raise TypeError(msg)
+            if len(indices) != 3:
+                raise ValueError(msg)
 
-        # first split data into train set, test/valid set
-        train_testvalid = self.dataset.train_test_split(
-            train_size=train_size, seed=seed
-        )
-        if valid_size is not None:
-            # further split the test set into a test, valid set
-            test_valid = train_testvalid["test"].train_test_split(
-                train_size=valid_size, seed=seed
-            )
-            # gather everyone if you want to have a single DatasetDict
             self.dataset_split = DatasetDict(
                 {
-                    "train": train_testvalid["train"],
-                    "test": test_valid["test"],
-                    "validation": test_valid["train"],
+                    "train": self.dataset[indices[0]],
+                    "test": self.dataset[indices[2]],
+                    "validation": self.dataset[indices[1]]
+                    if indices[1] is not None
+                    else None,
                 }
             )
         else:
-            self.dataset_split = DatasetDict(
-                {
-                    "train": train_testvalid["train"],
-                    "test": train_testvalid["test"],
-                    "validation": None,
-                }
+            # indices are not provided, so split the dataset
+            if valid_size is None:
+                print(
+                    "[INFO] Splitting up dataset into train / test sets, "
+                    "and saving to `.dataset_split`."
+                )
+            else:
+                print(
+                    "[INFO] Splitting up dataset into train / validation / test sets, "
+                    "and saving to `.dataset_split`."
+                )
+
+            # first split data into train set, test/valid set
+            train_testvalid = self.dataset.train_test_split(
+                train_size=train_size, seed=seed
             )
+            if valid_size is not None:
+                # further split the test set into a test, valid set
+                test_valid = train_testvalid["train"].train_test_split(
+                    train_size=valid_size, seed=seed
+                )
+                # gather everyone if you want to have a single DatasetDict
+                self.dataset_split = DatasetDict(
+                    {
+                        "train": train_testvalid["train"],
+                        "test": test_valid["test"],
+                        "validation": test_valid["train"],
+                    }
+                )
+            else:
+                self.dataset_split = DatasetDict(
+                    {
+                        "train": train_testvalid["train"],
+                        "test": train_testvalid["test"],
+                        "validation": None,
+                    }
+                )
+
         return self.dataset_split
 
     def set_up_training_args(self, output_dir: str, **kwargs) -> TrainingArguments:

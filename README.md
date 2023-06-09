@@ -31,7 +31,8 @@
 
 ## Installation
 
-In the root directory of this repository, perform a verbose, editable install with pip into a new virtual environment. For example using `conda`:
+In the root directory of this repository, perform a verbose, editable install
+with pip into a new virtual environment. For example using `conda`:
 
 ```bash
 git clone git@github.com:datasig-ac-uk/nlpsig.git
@@ -49,7 +50,7 @@ source ./.venv/bin/activate
 pip install -v -e .
 ```
 
-* For using within Jupyter, you can create a kernel with:
+- For using within Jupyter, you can create a kernel with:
 
 ```bash
 python -m ipykernel install --user --name nlpsig

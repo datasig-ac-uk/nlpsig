@@ -307,7 +307,7 @@ class TextEncoder:
         ----------
 
         feature_name : str
-            Column name which has the text in
+            Column name which has the text in.
         df : pd.DataFrame | None, optional
             Dataset as a pandas dataframe, by default None.
             If `df` is not provided, `dataset` must be provided.
@@ -329,8 +329,31 @@ class TextEncoder:
             Data collator to use, by default None.
             Should work with the tokenizer that is passed in.
         """
+        # check feature name is a string or list of length 1 or 2 of strings
+        if isinstance(feature_name, str):
+            # convert to list of one element
+            feature_name = [feature_name]
+        elif isinstance(feature_name, list):
+            # if feature_name is a list, it can only be of length 1
+            # (if only one column we want to process), or of length 2
+            # (if we have pairs of sentences to process)
+            if len(feature_name) not in [1, 2]:
+                raise ValueError(
+                    "If `feature_name` is a list, it must be a list of length 1 or 2."
+                )
+        else:
+            raise ValueError(
+                "`feature_name` must either be a string, or a list of strings."
+            )
+
+        # load in dataframe or Dataset
         if df is not None:
             # df is passed in, so create the Dataset object from the dataframe
+            # check feature names passed in exist in the dataframe passed
+            for col in feature_name:
+                if col not in df.columns:
+                    raise KeyError(f"'{col}' is not a column in `df`.")
+
             # will override any Dataset that is passed in to ensure consistency
             self.df: pd.DataFrame = df
             self.dataset: Dataset = Dataset.from_pandas(df)
@@ -344,25 +367,12 @@ class TextEncoder:
                     "If `df` is not passed in, then `dataset` "
                     "must be a Dataset object."
                 )
-        if isinstance(feature_name, str):
-            # convert to list of one element
-            feature_name = [feature_name]
-        elif isinstance(feature_name, list):
-            # if feature_name is a list, it can only be of length 1
-            # (if only one column we want to process), or of length 2
-            # (if we have pairs of sentences to process)
-            if len(feature_name) not in [1, 2]:
-                raise ValueError(
-                    "If `feature_name` is a list, it must be a list of length 1 or 2."
-                )
+
+            # check feature names passed in exist in the Dataset passed
             for col in feature_name:
-                if col not in df.columns:
+                if col not in dataset.features:
                     raise KeyError(f"'{col}' is not a column in `df`.")
-        else:
-            raise ValueError(
-                "if `df` is passed in, then `feature_name` "
-                "must either be a string, or a list of strings."
-            )
+
         self._features = list(self.dataset.features.keys())
         self.feature_name = feature_name
         self.tokenized_df = None
@@ -1031,7 +1041,8 @@ class TextEncoder:
         train_size: float = 0.8,
         valid_size: float | None = 0.33,
         indices: tuple[list[int], list[int], list[int]] | None = None,
-        seed: int = 42,
+        shuffle: bool = False,
+        random_state: int = 42,
     ) -> DatasetDict:
         """
         Split up dataset into train, validation, test sets for training / fine-tuning.
@@ -1053,8 +1064,10 @@ class TextEncoder:
             second item should be the indices for the validaton set (this could
             be None if no validation set is required), and third item should be
             indices for the test set.
-        seed : int, optional
-            Seed for splitting, by default 42.
+        shuffle : bool, optional
+            Whether or not to shuffle the dataset, by default False.
+        random_state : int, optional
+            Seed number, by default 42.
 
         Returns
         -------
@@ -1079,9 +1092,9 @@ class TextEncoder:
 
             self.dataset_split = DatasetDict(
                 {
-                    "train": self.dataset[indices[0]],
-                    "test": self.dataset[indices[2]],
-                    "validation": self.dataset[indices[1]]
+                    "train": Dataset.from_dict(self.dataset[indices[0]]),
+                    "test": Dataset.from_dict(self.dataset[indices[2]]),
+                    "validation": Dataset.from_dict(self.dataset[indices[1]])
                     if indices[1] is not None
                     else None,
                 }
@@ -1099,28 +1112,33 @@ class TextEncoder:
                     "and saving to `.dataset_split`."
                 )
 
-            # first split data into train set, test/valid set
-            train_testvalid = self.dataset.train_test_split(
-                train_size=train_size, seed=seed
+            # first split data into train/valid set, test set
+            train_test = self.dataset.train_test_split(
+                train_size=train_size,
+                shuffle=shuffle,
+                seed=random_state,
             )
+
             if valid_size is not None:
                 # further split the test set into a test, valid set
-                test_valid = train_testvalid["train"].train_test_split(
-                    train_size=valid_size, seed=seed
+                test_valid = train_test["train"].train_test_split(
+                    test_size=valid_size,
+                    shuffle=shuffle,
+                    seed=random_state,
                 )
-                # gather everyone if you want to have a single DatasetDict
+                # gather datasetes together
                 self.dataset_split = DatasetDict(
                     {
-                        "train": train_testvalid["train"],
-                        "test": test_valid["test"],
-                        "validation": test_valid["train"],
+                        "train": test_valid["train"],
+                        "test": train_test["test"],
+                        "validation": test_valid["test"],
                     }
                 )
             else:
                 self.dataset_split = DatasetDict(
                     {
-                        "train": train_testvalid["train"],
-                        "test": train_testvalid["test"],
+                        "train": train_test["train"],
+                        "test": train_test["test"],
                         "validation": None,
                     }
                 )
@@ -1150,7 +1168,10 @@ class TextEncoder:
             kwargs = {}
         if "evaluation_strategy" not in kwargs:
             kwargs["evaluation_strategy"] = "epoch"
+
+        # initialise TrainingArguments object
         self.training_args = TrainingArguments(output_dir=output_dir, **kwargs)
+
         return self.training_args
 
     def set_up_trainer(
@@ -1197,6 +1218,8 @@ class TextEncoder:
         if data_collator is None:
             # use the existing data collator
             data_collator = self.data_collator
+
+        # initialise Trainer object
         self.trainer = Trainer(
             model=self.model,
             args=self.training_args,
@@ -1207,6 +1230,7 @@ class TextEncoder:
             compute_metrics=compute_metrics,
             **kwargs,
         )
+
         return self.trainer
 
     def fit_transformer_with_trainer_api(
@@ -1244,6 +1268,7 @@ class TextEncoder:
             Passed along to `Trainer()` class, by default None.
         """
         if self.dataset_split is None:
+            # split up dataset if it hasn't been done yet
             self.split_dataset()
         if self.training_args is None:
             if output_dir is None:
@@ -1255,6 +1280,7 @@ class TextEncoder:
                 compute_metrics=compute_metrics,
                 **trainer_args,
             )
+
         print(f"[INFO] Training model with {self.model.num_parameters()} parameters...")
         self.trainer.train()
         print("[INFO] Training completed!")

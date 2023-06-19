@@ -936,7 +936,7 @@ class PrepareData:
 
         return torch.tensor(self.df[colnames].values)
 
-    def get_torch_path_for_SDSN(
+    def get_torch_path_for_SWNUNetwork(
         self,
         include_time_features_in_path: bool,
         include_time_features_in_input: bool,
@@ -944,7 +944,7 @@ class PrepareData:
         reduced_embeddings: bool = False,
     ) -> tuple[torch.tensor, int]:
         """
-        Returns a `torch.tensor` object that can be passed into `StackedDeepSigNet` model.
+        Returns a `torch.tensor` object that can be passed into `SWNUNetwork` model.
 
         Parameters
         ----------
@@ -952,10 +952,10 @@ class PrepareData:
             Whether or not to keep time features within the path.
         include_time_features_in_input : bool
             Whether or not to concatenate the time feature into the feed-forward neural
-            network in the `StackedDeepSigNet` model.
+            network in the `SWNUNetwork` model.
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
-            network in the `StackedDeepSigNet` model.
+            network in the `SWNUNetwork` model.
             If we created a path for each item in the dataset, we will concatenate
             the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
             the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
@@ -969,9 +969,9 @@ class PrepareData:
         Returns
         -------
         Tuple[torch.tensor, int]
-            First element is a tensor to be inputted to `StackedDeepSigNet` model.
+            First element is a tensor to be inputted to `SWNUNetwork` model.
             Second element is the number of channels in the path for which
-            we compute the path signature for in `StackedDeepSigNet`.
+            we compute the path signature for in `SWNUNetwork`.
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")

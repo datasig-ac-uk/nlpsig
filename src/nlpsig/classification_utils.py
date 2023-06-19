@@ -142,7 +142,7 @@ class DataSplits:
 
         if as_DataLoader:
             # return datasets as DataLoader objects if requested
-            if self.x_valid is not None:
+            if x_valid is not None:
                 valid = TensorDataset(x_valid, y_valid)
                 valid_loader = DataLoader(dataset=valid, **data_loader_args)
             else:

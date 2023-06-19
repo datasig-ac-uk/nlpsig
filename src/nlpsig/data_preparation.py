@@ -651,7 +651,7 @@ class PrepareData:
         zero_padding: bool = True,
         k: int = 5,
         time_feature: list[str] | str | None = None,
-        standardise_method: str | None = None,
+        standardise_method: list[str] | str | None = None,
         embeddings: str = "full",
         include_current_embedding: bool = True,
         pad_from_below: bool = True,

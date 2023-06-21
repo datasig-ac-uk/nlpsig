@@ -2,7 +2,7 @@
 
 [![Actions Status][actions-badge]][actions-link]
 
-<!-- [![Documentation Status][rtd-badge]][rtd-link] -->
+[![Documentation Status][rtd-badge]][rtd-link]
 
 [![PyPI version][pypi-version]][pypi-link]
 

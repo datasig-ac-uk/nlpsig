@@ -89,6 +89,5 @@ jobs:
         if: github.event_name == 'release' && github.event.action == 'published'
         with:
           # Remember to generate this and set it in "GitHub Secrets"
-          password: ${{ secrets.pypi_password }}
-          # Remove this line
-          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}

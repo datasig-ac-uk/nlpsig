@@ -1,14 +1,8 @@
 # nlpsig
 
-[![Actions Status][actions-badge]][actions-link]
-
-[![Documentation Status][rtd-badge]][rtd-link]
-
-[![PyPI version][pypi-version]][pypi-link]
+[![Actions Status][actions-badge]][actions-link] [![Documentation Status][rtd-badge]][rtd-link] [![PyPI version][pypi-version]][pypi-link] [![PyPI platforms][pypi-platforms]][pypi-link]
 
 <!-- [![Conda-Forge][conda-badge]][conda-link] -->
-
-[![PyPI platforms][pypi-platforms]][pypi-link]
 
 <!-- [![GitHub Discussion][github-discussions-badge]][github-discussions-link]
 [![Gitter][gitter-badge]][gitter-link] -->
@@ -31,13 +25,19 @@
 
 ## Installation
 
+```
+pip install nlpsig
+```
+
+### From source:
+
 In the root directory of this repository, perform a verbose, editable install
 with pip into a new virtual environment. For example using `conda`:
 
 ```bash
 git clone git@github.com:datasig-ac-uk/nlpsig.git
 cd nlpsig
-conda create -n nlpsig
+conda create -n nlpsig python=3.8
 conda activate nlpsig
 pip install -v -e .
 ```

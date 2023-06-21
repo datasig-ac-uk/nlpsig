@@ -17,6 +17,22 @@ from torch.utils.data.dataloader import DataLoader
 class DataSplits:
     """
     Class to split the data into train, validation and test sets.
+
+    Parameters
+    ----------
+    x_data : torch.Tensor
+        Features for prediction.
+    y_data : torch.Tensor
+        Variable to predict.
+    train_size : float, optional
+        Proportion of data to use as training data, by default 0.8.
+    valid_size : float | None, optional
+        Proportion of training data to use as validation data, by default 0.33.
+        If None, will not create a validation set.
+    shuffle : bool, optional
+        Whether or not to shuffle the dataset, by default False.
+    random_state : int, optional
+        Seed number, by default 42.
     """
 
     def __init__(
@@ -28,25 +44,6 @@ class DataSplits:
         shuffle: bool = False,
         random_state: int = 42,
     ):
-        """
-        Class to split the data into train, validation and test sets.
-
-        Parameters
-        ----------
-        x_data : torch.Tensor
-            Features for prediction.
-        y_data : torch.Tensor
-            Variable to predict.
-        train_size : float, optional
-            Proportion of data to use as training data, by default 0.8.
-        valid_size : float | None, optional
-            Proportion of training data to use as validation data, by default 0.33.
-            If None, will not create a validation set.
-        shuffle : bool, optional
-            Whether or not to shuffle the dataset, by default False.
-        random_state : int, optional
-            Seed number, by default 42.
-        """
         if x_data.shape[0] != y_data.shape[0]:
             msg = (
                 "x_data and y_data do not have compatible shapes "
@@ -104,22 +101,24 @@ class DataSplits:
         data_loader_args : dict | None, optional
             Any keywords to be passed in obtaining the
             `torch.utils.data.dataloader.DataLoader` object,
-            by default {"batch_size": 64, "shuffle": True}.
+            by default ``{"batch_size": 64, "shuffle": True}``.
 
         Returns
         -------
-        - If `as_DataLoader` is True, return tuple of
-        `torch.utils.data.dataloader.DataLoader` objects:
-          - First element is training dataset
-          - Second element is validation dataset
-          - Third element is testing dataset
-        - If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
-          - First element is features for training dataset
-          - Second element is labels for training dataset
-          - First element is features for validation dataset
-          - Second element is labels for validation dataset
-          - First element is features for testing dataset
-          - Second element is labels for testing dataset
+        tuple[DataLoader] | tuple[torch.Tensor]
+            If `as_DataLoader` is True, return tuple of `torch.utils.data.dataloader.DataLoader` objects:
+                - First element is training dataset
+                - Second element is validation dataset
+                - Third element is testing dataset
+
+            If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
+                - First element is features for training dataset
+                - Second element is labels for training dataset
+                - Third element is features for validation dataset
+                - Fourth element is labels for validation dataset
+                - Fifth element is features for testing dataset
+                - Sixth element is labels for testing dataset
+
         """
         if data_loader_args is None:
             data_loader_args = {"batch_size": 64, "shuffle": True}
@@ -167,7 +166,38 @@ class DataSplits:
 
 class Folds:
     """
-    Class to split the data into different folds based on groups.
+    Class to split the data into different folds based on groups
+
+    Parameters
+    ----------
+    x_data : torch.Tensor
+        Features for prediction.
+    y_data : torch.Tensor
+        Variable to predict.
+    groups : torch.Tensor | None, optional
+        Groups to split by, default None. If None is passed, then does standard KFold,
+        otherwise implements GroupShuffleSplit (if shuffle is True),
+        or GroupKFold (if shuffle is False).
+    n_splits : int, optional
+        Number of splits / folds, by default 5.
+    valid_size : float | None, optional
+        Proportion of training data to use as validation data, by default 0.33.
+        If None, will not create a validation set.
+    shuffle : bool, optional
+        Whether or not to shuffle the dataset, by default False.
+    random_state : int, optional
+        Seed number, by default 42.
+
+    Raises
+    ------
+    ValueError
+        if `n_splits` < 2.
+    ValueError
+        if `x_data` and `y_data` do not have the same number of records
+        (number of rows in `x_data` should equal the length of `y_data`).
+    ValueError
+        if `x_data` and `groups` do not have the same number of records
+        (number of rows in `x_data` should equal the length of `groups`).
     """
 
     def __init__(
@@ -180,40 +210,6 @@ class Folds:
         shuffle: bool = False,
         random_state: int = 42,
     ):
-        """
-        Class to split the data into different folds based on groups
-
-        Parameters
-        ----------
-        x_data : torch.Tensor
-            Features for prediction.
-        y_data : torch.Tensor
-            Variable to predict.
-        groups : torch.Tensor | None, optional
-            Groups to split by, default None. If None is passed, then does standard KFold,
-            otherwise implements GroupShuffleSplit (if shuffle is True),
-            or GroupKFold (if shuffle is False).
-        n_splits : int, optional
-            Number of splits / folds, by default 5.
-        valid_size : float | None, optional
-            Proportion of training data to use as validation data, by default 0.33.
-            If None, will not create a validation set.
-        shuffle : bool, optional
-            Whether or not to shuffle the dataset, by default False.
-        random_state : int, optional
-            Seed number, by default 42.
-
-        Raises
-        ------
-        ValueError
-            if `n_splits` < 2.
-        ValueError
-            if `x_data` and `y_data` do not have the same number of records
-            (number of rows in `x_data` should equal the length of `y_data`).
-        ValueError
-            if `x_data` and `groups` do not have the same number of records
-            (number of rows in `x_data` should equal the length of `groups`).
-        """
         if n_splits < 2:
             msg = "n_splits should be at least 2"
             raise ValueError(msg)
@@ -310,22 +306,23 @@ class Folds:
         data_loader_args : dict | None, optional
             Any keywords to be passed in obtaining the
             `torch.utils.data.dataloader.DataLoader` object,
-            by default {"batch_size": 64, "shuffle": True}.
+            by default ``{"batch_size": 64, "shuffle": True}``.
 
         Returns
         -------
-        - If `as_DataLoader` is True, return tuple of
-        `torch.utils.data.dataloader.DataLoader` objects:
-          - First element is training dataset
-          - Second element is validation dataset
-          - Third element is testing dataset
-        - If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
-          - First element is features for training dataset
-          - Second element is labels for training dataset
-          - First element is features for validation dataset
-          - Second element is labels for validation dataset
-          - First element is features for testing dataset
-          - Second element is labels for testing dataset
+        tuple[DataLoader] | tuple[torch.Tensor]
+            If `as_DataLoader` is True, return tuple of `torch.utils.data.dataloader.DataLoader` objects:
+                - First element is training dataset
+                - Second element is validation dataset
+                - Third element is testing dataset
+
+            If `as_DataLoader` is False, returns tuple of `torch.Tensors`:
+                - First element is features for training dataset
+                - Second element is labels for training dataset
+                - Third element is features for validation dataset
+                - Fourth element is labels for validation dataset
+                - Fifth element is features for testing dataset
+                - Sixth element is labels for testing dataset
 
         Raises
         ------

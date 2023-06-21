@@ -12,6 +12,33 @@ from tqdm.auto import tqdm
 class PrepareData:
     """
     Class to prepare dataset for computing signatures.
+
+    Parameters
+    ----------
+    original_df : pd.DataFrame
+        Dataset as a pandas dataframe.
+    embeddings : np.array
+        Embeddings for each of the items in `original_df`.
+    embeddings_reduced : np.array | None, optional
+        Dimension reduced embeddings, by default None.
+    pooled_embeddings : np.array | None, optional
+        Pooled embeddings for each unique id in `id_column`, by default None.
+    id_column : str | None, optional
+        Name of the column which identifies each of the text, e.g.
+        - "text_id" (if each item in `original_df` is a word or sentence from a particular text),
+        - "user_id" (if each item in `original_df` is a post from a particular user)
+        - "timeline_id" (if each item in `original_df` is a post from a particular time)
+        If None, it will create a dummy id_column named "dummy_id" and fill with zeros.
+    label_column : str | None, optional
+        Name of the column which are corresponds to the labels of the data.
+
+    Raises
+    ------
+    ValueError
+        if `original_df` and `embeddings` does not have the same number of rows.
+    ValueError
+        if `original_df` and `embeddings_reduced` does not have the same number of rows
+        (if `embeddings_reduced` is provided).
     """
 
     def __init__(
@@ -23,36 +50,6 @@ class PrepareData:
         id_column: str | None = None,
         label_column: str | None = None,
     ):
-        """
-        Class to prepare dataset for computing signatures.
-
-        Parameters
-        ----------
-        original_df : pd.DataFrame
-            Dataset as a pandas dataframe.
-        embeddings : np.array
-            Embeddings for each of the items in `original_df`.
-        embeddings_reduced : np.array | None, optional
-            Dimension reduced embeddings, by default None.
-        pooled_embeddings : np.array | None, optional
-            Pooled embeddings for each unique id in `id_column`, by default None.
-        id_column : str | None, optional
-            Name of the column which identifies each of the text, e.g.
-            - "text_id" (if each item in `original_df` is a word or sentence from a particular text),
-            - "user_id" (if each item in `original_df` is a post from a particular user)
-            - "timeline_id" (if each item in `original_df` is a post from a particular time)
-            If None, it will create a dummy id_column named "dummy_id" and fill with zeros.
-        label_column : str | None, optional
-            Name of the column which are corresponds to the labels of the data.
-
-        Raises
-        ------
-        ValueError
-            if `original_df` and `embeddings` does not have the same number of rows.
-        ValueError
-            if `original_df` and `embeddings_reduced` does not have the same number of rows
-            (if `embeddings_reduced` is provided).
-        """
         # perform checks that original_df have the right column names to work with
         if embeddings.ndim != 2:
             raise ValueError("`embeddings` should be a 2-dimensional array.")
@@ -677,14 +674,18 @@ class PrepareData:
         ----------
         pad_by : str
             How to construct the path. Options are:
+
             - "id": constructs a path of the embeddings of the texts associated to each id
             - "history": constructs a path by looking at the embeddings of the previous texts
               for each text
+
         method : str, optional
             How long the path is, default "k_last". Options are:
+
             - "k_last": specifying the length of the path through the choice of `k` (see below)
             - "max": the length of the path is chosen by looking at the largest number
               of texts associated to an individual id in `.id_column`
+
         zero_padding : bool, optional
             If True, will pad with zeros. Otherwise, pad with the latest
             text associated to the id.
@@ -694,15 +695,19 @@ class PrepareData:
             Which time feature(s) to keep. If None, then doesn't keep any.
         standardise_method : str | None, optional
             If not None, applies standardisation to the time features, default None. Options:
+
             - "standardise": transforms by subtracting the mean and dividing by standard deviation
             - "normalise": transforms by dividing by the sum
+
         embeddings : str, optional
             Which embeddings to keep, by default "full". Options:
+
             - "dim_reduced": dimension reduced embeddings
             - "full": full embeddings
             - "both": keeps both dimension reduced and full embeddings
+
         include_current_embedding : bool, optional
-            If `pad_by="history", this determines whether or not the embedding for the
+            If `pad_by="history"`, this determines whether or not the embedding for the
             text is included in it's history, by default True. If `pad_by="id"`,
             this argument is ignored.
         pad_from_below: bool, optional
@@ -713,11 +718,11 @@ class PrepareData:
         -------
         np.array
             3 dimension array of the path:
-            - First dimension is ids (if `pad_by="id"`)
-              or each text (if `pad_by="history"`)
-            - Second dimension is the associated texts
-            - Third dimension are the features (e.g. embeddings /
-              dimension reduced embeddings, time features)
+                - First dimension is ids (if `pad_by="id"`) or each text (if `pad_by="history"`)
+                - Second dimension is the associated texts
+                - Third dimension are the features (e.g. embeddings /
+                  dimension reduced embeddings, time features)
+
         """
         print(
             "[INFO] Padding ids and storing in `.df_padded` and `.array_padded` attributes."

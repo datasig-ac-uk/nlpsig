@@ -30,7 +30,59 @@ from transformers import (
 
 class SentenceEncoder:
     """
-    Class to obtain sentence embeddings using SentenceTransformer class in `sentence_transformers`.
+    Class to obtain sentence embeddings using SentenceTransformer class
+    in `sentence_transformers`.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataset as a pandas dataframe
+    feature_name : str
+        Column name which has the text in
+    model_name : str, optional
+        Name of model to obtain sentence embeddings, by default "all-MiniLM-L6-v2".
+
+        If loading a pretrained model using `.load_pretrained_model()` method,
+        passes this to the `model_name_or_path` argument when initialising
+        `SentenceTransformer` object.
+
+        A few alternative options are:
+         - "all-mpnet-base-v2"
+         - "all-distilroberta-v1"
+         - "all-MiniLM-L12-v2"
+
+        See more pre-trained SentenceTransformer models at
+        https://www.sbert.net/docs/pretrained_models.html.
+    model_modules : Iterable[nn.Module] | None, optional
+        This parameter can be used to create custom
+        SentenceTransformer models from scratch.
+
+        See
+        https://www.sbert.net/docs/training/overview.html#creating-networks-from-scratch
+        for examples.
+
+        If creating a custom model using `.load_custom_model()` method,
+        passes this into the `modules` argument when initialising
+        `SentenceTransformer` object.
+    model_encoder_args : dict | None, optional
+        Any keywords to be passed into the model for encoding sentences,
+        by default the following arguments to pass into the
+        `.encode()` method of SentenceTransformer class:
+        ``{"batch_size": 64,
+        "show_progress_bar": True,
+        "output_value": "sentence_embedding",
+        "convert_to_numpy": True,
+        "convert_to_tensor": False,
+        "device": None,
+        "normalize_embeddings": False}``
+    model_fit_args : dict | None, optional
+        Any keywords to be passed into the model to fine-tune sentence transformer,
+        by default None.
+
+    Raises
+    ------
+    KeyError
+        if `feature_name` is not a column in df.
     """
 
     def __init__(
@@ -42,55 +94,6 @@ class SentenceEncoder:
         model_encoder_args: dict | None = None,
         model_fit_args: dict | None = None,
     ):
-        """
-        Class to obtain sentence embeddings using SentenceTransformer class
-        in `sentence_transformers`.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            Dataset as a pandas dataframe
-        feature_name : str
-            Column name which has the text in
-        model_name : str, optional
-            Name of model to obtain sentence embeddings, by default "all-MiniLM-L6-v2".
-            If loading a pretrained model using `.load_pretrained_model()` method,
-            passes this to the `model_name_or_path` argument when initialising
-            `SentenceTransformer` object
-            A few alternative options are:
-            - all-mpnet-base-v2
-            - all-distilroberta-v1
-            - all-MiniLM-L12-v2
-            See more pre-trained SentenceTransformer models at
-            https://www.sbert.net/docs/pretrained_models.html.
-        model_modules : Iterable[nn.Module] | None, optional
-            This parameter can be used to create custom
-            SentenceTransformer models from scratch. See
-            https://www.sbert.net/docs/training/overview.html#creating-networks-from-scratch
-            for examples.
-            If creating a custom model using `.load_custom_model()` method,
-            passes this into the `modules` argument when initialising
-            `SentenceTransformer` object.
-        model_encoder_args : dict | None, optional
-            Any keywords to be passed into the model for encoding sentences,
-            by default the following arguments to pass into the
-            `.encode()` method of SentenceTransformer class:
-            {"batch_size": 64,
-             "show_progress_bar": True,
-             "output_value": "sentence_embedding",
-             "convert_to_numpy": True,
-             "convert_to_tensor": False,
-             "device": None,
-             "normalize_embeddings": False}
-        model_fit_args : dict | None, optional
-            Any keywords to be passed into the model to fine-tune sentence transformer,
-            by default None
-
-        Raises
-        ------
-        KeyError
-            if `feature_name` is not a column in df.
-        """
         self.df = df
         if feature_name not in df.columns:
             raise KeyError(f"{feature_name} is not a column in df")
@@ -286,6 +289,32 @@ class TextEncoder:
     """
     Class to obtain token embeddings (and optionally pool them)
     using Huggingface transformers.
+
+    Parameters
+    ----------
+
+    feature_name : str
+        Column name which has the text in.
+    df : pd.DataFrame | None, optional
+        Dataset as a pandas dataframe, by default None.
+        If `df` is not provided, `dataset` must be provided.
+        A dataframe will then be created from it.
+    dataset : Dataset | None, optional
+        Huggingface Dataset object for the full dataset, by default None.
+        If `df` is a dataframe, a Dataset will be created from it,
+        even if `dataset` is provided.
+    model_name : str | None, optional
+        Name of transformer encoder model from Huggingface Hub, by default None.
+        To be used if want to load in a pretrained model.
+    model : PreTrainedModel | None, optional
+        Huggingface transformer model class, by default None.
+    config : PretrainedConfig | None, optional
+        Huggingface configuration class, by default None.
+    tokenizer : PreTrainedTokenizer | None, optional
+        Huggingface tokenizer class, by default None.
+    data_collator : DataCollator | None, optional
+        Data collator to use, by default None.
+        Should work with the tokenizer that is passed in.
     """
 
     def __init__(
@@ -299,36 +328,6 @@ class TextEncoder:
         tokenizer: PreTrainedTokenizer | None = None,
         data_collator: DataCollator | None = None,
     ):
-        """
-        Class to obtain token embeddings (and optionally pool them)
-        using Huggingface transformers.
-
-        Parameters
-        ----------
-
-        feature_name : str
-            Column name which has the text in.
-        df : pd.DataFrame | None, optional
-            Dataset as a pandas dataframe, by default None.
-            If `df` is not provided, `dataset` must be provided.
-            A dataframe will then be created from it.
-        dataset : Dataset | None, optional
-            Huggingface Dataset object for the full dataset, by default None.
-            If `df` is a dataframe, a Dataset will be created from it,
-            even if `dataset` is provided.
-        model_name : str | None, optional
-            Name of transformer encoder model from Huggingface Hub, by default None.
-            To be used if want to load in a pretrained model.
-        model : PreTrainedModel | None, optional
-            Huggingface transformer model class, by default None.
-        config : PretrainedConfig | None, optional
-            Huggingface configuration class, by default None.
-        tokenizer : PreTrainedTokenizer | None, optional
-            Huggingface tokenizer class, by default None.
-        data_collator : DataCollator | None, optional
-            Data collator to use, by default None.
-            Should work with the tokenizer that is passed in.
-        """
         # check feature name is a string or list of length 1 or 2 of strings
         if isinstance(feature_name, str):
             # convert to list of one element
@@ -813,40 +812,45 @@ class TextEncoder:
         method : str, optional
             Method for combining the layer hidden states, by default "hidden_layer".
             Options are:
+
             - "hidden_layer":
                 - if `layers` is just an integer, token embedding will be taken as
-                is taken from the hidden state in layer number `layers`.
-                By default (if `layers` is not specified), the token embeddings are
-                taken from the second-to-last layer hidden state.
+                  is taken from the hidden state in layer number `layers`.
+                  By default (if `layers` is not specified), the token embeddings are
+                  taken from the second-to-last layer hidden state.
                 - if `layers` is a list of integers, will return the
-                layer hidden states from the specified layers.
+                  layer hidden states from the specified layers.
+
             - "concatenate":
                 - if `layers` is a list of integers, will return the
-                concatenation of the layer hidden states from the specified layers.
-                By default (if `layers` is not specified), the token embeedings are
-                computed by concatenating the layer hidden states from the last 4 layers
-                (or all the hidden states if the number of hidden states is less than 4).
+                  concatenation of the layer hidden states from the specified layers.
+                  By default (if `layers` is not specified), the token embeedings are
+                  computed by concatenating the layer hidden states from the last 4 layers
+                  (or all the hidden states if the number of hidden states is less than 4).
                 - if `layers` is just an integer, token embedding will be taken as
-                is taken from the hidden state in layer number `layers`
-                (as concatenation of one layer hidden state is just that layer).
+                  is taken from the hidden state in layer number `layers`
+                  (as concatenation of one layer hidden state is just that layer).
+
             - "sum":
                 - if `layers` is a list of integers, will return the
-                sum of the layer hidden states from the specified layers.
-                By default (if `layers` is not specified), the token embeedings are
-                computed by concatenating the layer hidden states from the last 4 layers
-                (or all the hidden states if the number of hidden states is less than 4).
+                  sum of the layer hidden states from the specified layers.
+                  By default (if `layers` is not specified), the token embeedings are
+                  computed by concatenating the layer hidden states from the last 4 layers
+                  (or all the hidden states if the number of hidden states is less than 4).
                 - if `layers` is just an integer, token embedding will be taken as
-                is taken from the hidden state in layer number `layers`
-                (as sum of one layer hidden state is just that layer).
+                  is taken from the hidden state in layer number `layers`
+                  (as sum of one layer hidden state is just that layer).
+
             - "mean":
                 - if `layers` is a list of integers, will return the
-                mean of the layer hidden states from the specified layers.
-                By default (if `layers` is not specified), the token embeedings are
-                computed by concatenating the layer hidden states from the last 4 layers
-                (or all the hidden states if the number of hidden states is less than 4).
+                  mean of the layer hidden states from the specified layers.
+                  By default (if `layers` is not specified), the token embeedings are
+                  computed by concatenating the layer hidden states from the last 4 layers
+                  (or all the hidden states if the number of hidden states is less than 4).
                 - if `layers` is just an integer, token embedding will be taken as
-                is taken from the hidden state in layer number `layers`
-                (as mean of one layer hidden state is just that layer).
+                  is taken from the hidden state in layer number `layers`
+                  (as mean of one layer hidden state is just that layer).
+
         batch_size: int = 100, optional
             The size of the batches, by default 100.
         layer : int | list[int] | tuple[int] | None, optional

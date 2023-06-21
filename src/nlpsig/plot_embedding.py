@@ -7,20 +7,17 @@ from distinctipy import colorsets
 
 class PlotEmbedding:
     """
-    Class to visualise word or sentence embeddings
+    Class to visualise word or sentence embeddings.
+
+    Parameters
+    ----------
+    x_data : np.array
+        features
+    y_data : np.array
+        y labels
     """
 
     def __init__(self, x_data: np.array, y_data: np.array) -> None:
-        """
-        Class to visualise word or sentence embeddings.
-
-        Parameters
-        ----------
-        x_data : np.array
-            features
-        y_data : np.array
-            y labels
-        """
         self.x_data = x_data
         self.y_data = y_data
         self.embed = {}
@@ -74,26 +71,17 @@ class PlotEmbedding:
         Parameters
         ----------
         method : str, optional
-            Which dimensionality reduction technique to use, by default "pca".
-            Options:
-            - "pca" (PCA): implemented using scikit-learn
-            - "umap" (UMAP): implemented using `umap-learn` package
-            - "tsne" (TSNE): implemented using scikit-learn
+            Which dimensionality reduction technique to use, by default "pca". Options:
+             - "pca" (PCA): implemented using scikit-learn
+             - "umap" (UMAP): implemented using `umap-learn` package
+             - "tsne" (TSNE): implemented using scikit-learn
+
         dim : int, optional
             Number of components to keep, by default 3.
         overwrite : bool, optional
             Whether or not to overwrite current implemented embedding, by default False.
         random_state : int, optional
             Seed number, by default 42.
-
-        Raises
-        ------
-        NotImplementedError
-            if `method` is not one of the implemented methods
-            Options are
-            - "pca" (PCA): implemented using scikit-learn
-            - "umap" (UMAP): implemented using `umap-learn` package
-            - "tsne" (TSNE): implemented using scikit-learn
         """
         embed_name = f"{method}_{dim}"
         if (not overwrite) and (embed_name in self.embed):

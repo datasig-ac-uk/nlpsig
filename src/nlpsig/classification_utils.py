@@ -132,13 +132,18 @@ class DataSplits:
                         n_splits=1, test_size=valid_size, random_state=self.random_state
                     )
 
-                    train_index, valid_index = next(
+                    # use GroupShuffleSplit to split the train indices further to get valid set
+                    t_ind, v_ind = next(
                         gss.split(
                             X=self.x_data[train_index],
                             y=self.y_data[train_index],
                             groups=self.groups[train_index],
                         )
                     )
+
+                    # obtain updated train and valid set
+                    valid_index = train_index[v_ind]
+                    train_index = train_index[t_ind]
                 else:
                     valid_index = None
             else:

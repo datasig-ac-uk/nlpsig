@@ -21,13 +21,15 @@ def test_default_initialisation_datetime(
     # check that .df is a data frame and check the shape of it
     assert type(obj.df) == pd.DataFrame
     # number of columns is:
+    # original index +
     # original number of columns +
     # number of columns in emb +
     # 3 time features +
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns)
+        1
+        + len(obj.original_df.columns)
         + emb.shape[1]
         + len(obj._time_feature_choices)
         + 1,
@@ -97,12 +99,16 @@ def test_initialisation_with_id_and_label_datetime(
     # check that .df is a data frame and check the shape of it
     assert type(obj.df) == pd.DataFrame
     # number of columns is:
+    # original index +
     # original number of columns (which include the correct id and label columns) +
     # number of columns in emb +
     # 3 time features
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns) + emb.shape[1] + len(obj._time_feature_choices),
+        1
+        + len(obj.original_df.columns)
+        + emb.shape[1]
+        + len(obj._time_feature_choices),
     )
     assert obj.pooled_embeddings is None
     assert set(obj._time_feature_choices) == {
@@ -187,6 +193,7 @@ def test_initialisation_with_reduced_emb_datetime(
     # check that .df is a data frame and check the shape of it
     assert type(obj.df) == pd.DataFrame
     # number of columns is:
+    # original index +
     # original number of columns +
     # number of columns in emb +
     # number of columns in emb_reduced +
@@ -194,7 +201,8 @@ def test_initialisation_with_reduced_emb_datetime(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns)
+        1
+        + len(obj.original_df.columns)
         + emb.shape[1]
         + emb_reduced.shape[1]
         + len(obj._time_feature_choices)
@@ -278,13 +286,15 @@ def test_initialisation_with_pooled_emb_datetime(
     # check that .df is a data frame and check the shape of it
     assert type(obj.df) == pd.DataFrame
     # number of columns is:
+    # original index +
     # original number of columns +
     # number of columns in emb +
     # number of columns in emb_reduced +
     # 3 time feature
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns)
+        1
+        + len(obj.original_df.columns)
         + emb.shape[1]
         + emb_reduced.shape[1]
         + len(obj._time_feature_choices),

@@ -24,6 +24,8 @@ class DataSplits:
         Features for prediction.
     y_data : torch.Tensor
         Variable to predict.
+    groups : list[int] | tuple[int] | None, optional
+        Groups to split by, default None.
     train_size : float, optional
         Proportion of data to use as training data, by default 0.8.
     valid_size : float | None, optional
@@ -47,6 +49,7 @@ class DataSplits:
         self,
         x_data: torch.Tensor,
         y_data: torch.Tensor,
+        groups: list[int] | tuple[int] | None = None,
         train_size: float = 0.8,
         valid_size: float | None = 0.33,
         indices: tuple[list[int], list[int], list[int]] | None = None,
@@ -99,12 +102,20 @@ class DataSplits:
             else:
                 self.random_state = None
 
+            if groups is not None and x_data.shape[0] != len(groups):
+                msg = (
+                    "x_data and groups do not have compatible shapes "
+                    "(need to have same number of samples)"
+                )
+                raise ValueError(msg)
+
             # first split data into train set, test/valid set
             train_index, test_index = train_test_split(
                 range(len(self.y_data)),
                 test_size=(1 - train_size),
                 shuffle=self.shuffle,
                 random_state=self.random_state,
+                stratify=groups,
             )
 
             if valid_size is not None:
@@ -114,6 +125,7 @@ class DataSplits:
                     test_size=valid_size,
                     shuffle=self.shuffle,
                     random_state=self.random_state,
+                    stratify=groups[train_index],
                 )
             else:
                 valid_index = None
@@ -208,7 +220,7 @@ class Folds:
         Features for prediction.
     y_data : torch.Tensor
         Variable to predict.
-    groups : torch.Tensor | None, optional
+    groups : list[int] | tuple[int] | None, optional
         Groups to split by, default None. If None is passed, then does standard KFold,
         otherwise implements GroupShuffleSplit (if shuffle is True),
         or GroupKFold (if shuffle is False).
@@ -247,7 +259,7 @@ class Folds:
         self,
         x_data: torch.Tensor,
         y_data: torch.Tensor,
-        groups: torch.Tensor | None = None,
+        groups: list[int] | tuple[int] | None = None,
         n_splits: int = 5,
         valid_size: float | None = 0.33,
         indices: tuple[tuple[list[int], list[int] | None, list[int]]] | None = None,
@@ -263,7 +275,7 @@ class Folds:
                 "(need to have same number of samples)"
             )
             raise ValueError(msg)
-        if groups is not None and x_data.shape[0] != groups.shape[0]:
+        if groups is not None and x_data.shape[0] != len(groups):
             msg = (
                 "x_data and groups do not have compatible shapes "
                 "(need to have same number of samples)"

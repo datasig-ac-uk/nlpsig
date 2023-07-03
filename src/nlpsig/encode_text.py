@@ -1044,7 +1044,8 @@ class TextEncoder:
         self,
         train_size: float = 0.8,
         valid_size: float | None = 0.33,
-        indices: tuple[list[int], list[int], list[int]] | None = None,
+        indices: tuple[Iterable[int], Iterable[int] | None, Iterable[int]]
+        | None = None,
         shuffle: bool = False,
         random_state: int = 42,
     ) -> DatasetDict:
@@ -1060,7 +1061,7 @@ class TextEncoder:
             Proportion of training data to use as validation data, by default 0.33.
             If None, will not create a validation set.
             Ignored if indices are passed.
-        indices : tuple[list[int], list[int] | None, list[int]] | None, optional
+        indices : tuple[Iterable[int], Iterable[int] | None, Iterable[int]] | None, optional
             Train, validation, test indices to use. If passed, will split the data
             according to these indices rather than splitting it within the method
             using the train_size and valid_size provided.

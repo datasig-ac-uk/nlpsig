@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import random
+from typing import Iterable
 
 import torch
 from sklearn.model_selection import (
@@ -34,7 +35,7 @@ class DataSplits:
     valid_size : float | None, optional
         Proportion of training data to use as validation data, by default 0.33.
         If None, will not create a validation set.
-    indices : tuple[list[int], list[int] | None, list[int]] | None, optional
+    indices : tuple[Iterable[int], Iterable[int] | None, Iterable[int]] | None, optional
         Train, validation, test indices to use. If passed, will split the data
         according to these indices rather than splitting it within the method
         using the train_size and valid_size provided.
@@ -57,7 +58,7 @@ class DataSplits:
         groups: torch.Tensor | None = None,
         train_size: float = 0.8,
         valid_size: float | None = 0.33,
-        indices: tuple[list[int], list[int], list[int]] | None = None,
+        indices: tuple[Iterable[int], Iterable[int], Iterable[int]] | None = None,
         shuffle: bool = False,
         random_state: int = 42,
     ):
@@ -108,6 +109,7 @@ class DataSplits:
             test_index = indices[2]
         else:
             if self.groups is not None:
+                # see https://github.com/scikit-learn/scikit-learn/issues/9193
                 print("[INFO] Splitting data by provided groups")
                 self.shuffle = False
 
@@ -142,10 +144,14 @@ class DataSplits:
                     )
 
                     # obtain updated train and valid set
-                    valid_index = train_index[v_ind]
+                    valid_index = train_index[v_ind].tolist()
                     train_index = train_index[t_ind]
                 else:
                     valid_index = None
+
+                # convert test_index to list (from np.array)
+                train_index = train_index.tolist()
+                test_index = test_index.tolist()
             else:
                 if not self.shuffle:
                     self.random_state = None
@@ -268,7 +274,7 @@ class Folds:
     valid_size : float | None, optional
         Proportion of training data to use as validation data, by default 0.33.
         If None, will not create a validation set.
-    indices : tuple[tuple[list[int], list[int] | None, list[int]]] | None, optional
+    indices : tuple[tuple[Iterable[int], Iterable[int] | None, Iterable[int]]] | None, optional
         Tuple of length n_splits where each item is also a tuple containing the
         train, validation, test indices to use for each fold. If passed, will
         split the data according to these indices rather than splitting
@@ -302,7 +308,8 @@ class Folds:
         groups: torch.Tensor | None = None,
         n_splits: int = 5,
         valid_size: float | None = 0.33,
-        indices: tuple[tuple[list[int], list[int] | None, list[int]]] | None = None,
+        indices: tuple[tuple[Iterable[int], Iterable[int] | None, Iterable[int]]]
+        | None = None,
         shuffle: bool = False,
         random_state: int = 42,
     ):

@@ -44,8 +44,10 @@ class DataSplits:
         indices for the test set.
     shuffle : bool, optional
         Whether or not to shuffle the dataset, by default False.
+        This is ignored if either groups are passed, or if indices are passed.
     random_state : int, optional
         Seed number, by default 42.
+        This is ignored if indices are passed.
     """
 
     def __init__(
@@ -76,6 +78,7 @@ class DataSplits:
         self.y_data = y_data
         self.groups = groups
         self.shuffle = shuffle
+        self.random_state = random_state
 
         if indices is not None:
             self.shuffle = False
@@ -94,19 +97,20 @@ class DataSplits:
                     j in list(range(len(y_data))) for j in indices[i]
                 ):
                     problem_set = "train" if i == 0 else "valid" if i == 1 else "test"
-                    msg = f"in {problem_set}, the indices will be out of range"
+                    msg = (
+                        f"in the {problem_set} indices, "
+                        "some of the indices will be out of range"
+                    )
                     raise IndexError(msg)
 
             train_index = indices[0]
             valid_index = indices[1]
             test_index = indices[2]
         else:
-            if self.shuffle:
-                self.random_state = random_state
-            else:
-                self.random_state = None
-
             if self.groups is not None:
+                print("[INFO] Splitting data by provided groups")
+                self.shuffle = False
+
                 if x_data.shape[0] != len(self.groups):
                     msg = (
                         "x_data and groups do not have compatible shapes "
@@ -138,6 +142,9 @@ class DataSplits:
                 else:
                     valid_index = None
             else:
+                if not self.shuffle:
+                    self.random_state = None
+
                 # first split data into train set, test/valid set
                 train_index, test_index = train_test_split(
                     range(len(self.y_data)),
@@ -269,6 +276,7 @@ class Folds:
         Whether or not to shuffle the dataset, by default False.
     random_state : int, optional
         Seed number, by default 42.
+        This is ignored if indices are passed.
 
     Raises
     ------
@@ -346,11 +354,14 @@ class Folds:
                         problem_set = (
                             "train" if i == 0 else "valid" if i == 1 else "test"
                         )
-                        msg = f"in {problem_set}, the indices will be out of range"
+                        msg = (
+                            f"in the {problem_set} indices, for fold {k}, "
+                            "some of the indices will be out of range"
+                        )
                         raise IndexError(msg)
 
             # all checks have passed - store indices
-            self.fold_indices[k] = indices
+            self.fold_indices = indices
         else:
             if self.shuffle:
                 self.random_state = random_state

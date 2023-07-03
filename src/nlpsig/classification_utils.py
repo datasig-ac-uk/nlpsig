@@ -29,6 +29,14 @@ class DataSplits:
     valid_size : float | None, optional
         Proportion of training data to use as validation data, by default 0.33.
         If None, will not create a validation set.
+    indices : tuple[list[int], list[int] | None, list[int]] | None, optional
+        Train, validation, test indices to use. If passed, will split the data
+        according to these indices rather than splitting it within the method
+        using the train_size and valid_size provided.
+        First item in the tuple should be the indices for the training set,
+        second item should be the indices for the validaton set (this could
+        be None if no validation set is required), and third item should be
+        indices for the test set.
     shuffle : bool, optional
         Whether or not to shuffle the dataset, by default False.
     random_state : int, optional
@@ -41,6 +49,7 @@ class DataSplits:
         y_data: torch.Tensor,
         train_size: float = 0.8,
         valid_size: float | None = 0.33,
+        indices: tuple[list[int], list[int], list[int]] | None = None,
         shuffle: bool = False,
         random_state: int = 42,
     ):
@@ -60,29 +69,54 @@ class DataSplits:
         self.x_data = x_data
         self.y_data = y_data
         self.shuffle = shuffle
-        if self.shuffle:
-            self.random_state = random_state
-        else:
+
+        if indices is not None:
+            self.shuffle = False
             self.random_state = None
 
-        # first split data into train set, test/valid set
-        train_index, test_index = train_test_split(
-            range(len(self.y_data)),
-            test_size=(1 - train_size),
-            shuffle=self.shuffle,
-            random_state=self.random_state,
-        )
+            # indices are provided, so use these to split the dataset
+            msg = "if indices are provided, it must be a tuple of length 3"
+            if not isinstance(indices, tuple):
+                raise TypeError(msg)
+            if len(indices) != 3:
+                raise ValueError(msg)
 
-        if valid_size is not None:
-            # further split the train set into a train, valid set
-            train_index, valid_index = train_test_split(
-                train_index,
-                test_size=valid_size,
+            # check that the indices passed in are within range
+            for i in range(len(indices)):
+                if (indices[i] is not None) and not all(
+                    j in list(range(len(y_data))) for j in indices[i]
+                ):
+                    problem_set = "train" if i == 0 else "valid" if i == 1 else "test"
+                    msg = f"in {problem_set}, the indices will be out of range"
+                    raise IndexError(msg)
+
+            train_index = indices[0]
+            valid_index = indices[1]
+            test_index = indices[2]
+        else:
+            if self.shuffle:
+                self.random_state = random_state
+            else:
+                self.random_state = None
+
+            # first split data into train set, test/valid set
+            train_index, test_index = train_test_split(
+                range(len(self.y_data)),
+                test_size=(1 - train_size),
                 shuffle=self.shuffle,
                 random_state=self.random_state,
             )
-        else:
-            valid_index = None
+
+            if valid_size is not None:
+                # further split the train set into a train, valid set
+                train_index, valid_index = train_test_split(
+                    train_index,
+                    test_size=valid_size,
+                    shuffle=self.shuffle,
+                    random_state=self.random_state,
+                )
+            else:
+                valid_index = None
 
         # store indices
         self.indices = (train_index, valid_index, test_index)
@@ -183,6 +217,14 @@ class Folds:
     valid_size : float | None, optional
         Proportion of training data to use as validation data, by default 0.33.
         If None, will not create a validation set.
+    indices : tuple[tuple[list[int], list[int] | None, list[int]]] | None, optional
+        Train, validation, test indices to use. If passed, will split the data
+        according to these indices rather than splitting it within the method
+        using the train_size and valid_size provided.
+        First item in the tuple should be the indices for the training set,
+        second item should be the indices for the validaton set (this could
+        be None if no validation set is required), and third item should be
+        indices for the test set.
     shuffle : bool, optional
         Whether or not to shuffle the dataset, by default False.
     random_state : int, optional
@@ -207,6 +249,7 @@ class Folds:
         groups: torch.Tensor | None = None,
         n_splits: int = 5,
         valid_size: float | None = 0.33,
+        indices: tuple[tuple[list[int], list[int] | None, list[int]]] | None = None,
         shuffle: bool = False,
         random_state: int = 42,
     ):
@@ -234,48 +277,83 @@ class Folds:
         self.groups = groups
         self.n_splits = n_splits
         self.shuffle = shuffle
-        if self.shuffle:
-            self.random_state = random_state
-        else:
+
+        if indices is not None:
+            self.shuffle = False
             self.random_state = None
 
-        if self.groups is not None:
-            if self.shuffle:
-                # GroupShuffleSplit does not guarantee that every group is in a test group
-                self.fold = GroupShuffleSplit(
-                    n_splits=self.n_splits, random_state=self.random_state
-                )
-            else:
-                # GroupKFold guarantees that every group is in a test group once
-                self.fold = GroupKFold(n_splits=self.n_splits)
+            # indices are provided, so use these to split the dataset
+            # check that indices are a tuple of length k
+            msg = "if indices are provided, it must be a tuple of length k"
+            if not isinstance(indices, tuple):
+                raise TypeError(msg)
+            if len(indices) != 3:
+                raise ValueError(msg)
+
+            for k in range(self.n_splits):
+                # check that indices[k] is a tuple of length 3
+                msg = "each item in indices must be a tuple of length 3"
+                if not isinstance(indices[k], tuple):
+                    raise TypeError(msg)
+                if len(indices[k]) != 3:
+                    raise ValueError(msg)
+
+                # check that the indices passed in are within range
+                for i in range(len(indices[k])):
+                    if (indices[k][i] is not None) and not all(
+                        j in list(range(len(y_data))) for j in indices[k][i]
+                    ):
+                        problem_set = (
+                            "train" if i == 0 else "valid" if i == 1 else "test"
+                        )
+                        msg = f"in {problem_set}, the indices will be out of range"
+                        raise IndexError(msg)
+
+            # all checks have passed - store indices
+            self.fold_indices[k] = indices
         else:
-            self.fold = KFold(
-                n_splits=self.n_splits,
-                shuffle=self.shuffle,
-                random_state=self.random_state,
-            )
+            if self.shuffle:
+                self.random_state = random_state
+            else:
+                self.random_state = None
 
-        # obtain fold indices
-        self.fold_indices = list(self.fold.split(X=self.x_data, groups=self.groups))
-
-        # make the validation sets within the indices
-        for k in range(self.n_splits):
-            train_index = self.fold_indices[k][0].tolist()
-            test_index = self.fold_indices[k][1].tolist()
-
-            if valid_size is not None:
-                # further split the train set into a train, valid set
-                train_index, valid_index = train_test_split(
-                    train_index,
-                    test_size=valid_size,
+            if self.groups is not None:
+                if self.shuffle:
+                    # GroupShuffleSplit does not guarantee that every group is in a test group
+                    self.fold = GroupShuffleSplit(
+                        n_splits=self.n_splits, random_state=self.random_state
+                    )
+                else:
+                    # GroupKFold guarantees that every group is in a test group once
+                    self.fold = GroupKFold(n_splits=self.n_splits)
+            else:
+                self.fold = KFold(
+                    n_splits=self.n_splits,
                     shuffle=self.shuffle,
                     random_state=self.random_state,
                 )
-            else:
-                valid_index = None
 
-            # store indices
-            self.fold_indices[k] = (train_index, valid_index, test_index)
+            # obtain fold indices
+            self.fold_indices = list(self.fold.split(X=self.x_data, groups=self.groups))
+
+            # make the validation sets within the indices
+            for k in range(self.n_splits):
+                train_index = self.fold_indices[k][0].tolist()
+                test_index = self.fold_indices[k][1].tolist()
+
+                if valid_size is not None:
+                    # further split the train set into a train, valid set
+                    train_index, valid_index = train_test_split(
+                        train_index,
+                        test_size=valid_size,
+                        shuffle=self.shuffle,
+                        random_state=self.random_state,
+                    )
+                else:
+                    valid_index = None
+
+                # store indices
+                self.fold_indices[k] = (train_index, valid_index, test_index)
 
     def get_splits(
         self,

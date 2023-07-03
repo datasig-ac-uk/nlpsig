@@ -1088,8 +1088,8 @@ class TextEncoder:
 
         if indices is not None:
             # indices are provided, so use these to split the dataset
+            msg = "if indices are provided, it must be a tuple of length 3"
             if not isinstance(indices, tuple):
-                msg = "if indices are provided, it must be a tuple of length 3"
                 raise TypeError(msg)
             if len(indices) != 3:
                 raise ValueError(msg)

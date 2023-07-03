@@ -217,10 +217,11 @@ class PrepareData:
             self.df["time_encoding"] = self.df["datetime"].map(
                 lambda t: self._time_fraction(t)
             )
+            # reset index so that we can return to the starting index afterwards
+            self.df = self.df.reset_index()
+
             # sort by the id and the date
-            self.df = self.df.sort_values(by=[self.id_column, "datetime"]).reset_index(
-                drop=True
-            )
+            self.df = self.df.sort_values(by=[self.id_column, "datetime"])
 
             # calculate time difference between posts
             print("[INFO] Adding 'time_diff' and feature...")
@@ -256,6 +257,11 @@ class PrepareData:
             .apply(lambda x: list(range(1, len(x) + 1)))
             .explode()
         )
+
+        if "datetime" in self.df.columns:
+            # re-sort the dataframe by the index
+            self.df = self.df.sort_index()
+
         self.time_features_added = True
 
         return self.df

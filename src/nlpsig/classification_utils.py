@@ -218,13 +218,14 @@ class Folds:
         Proportion of training data to use as validation data, by default 0.33.
         If None, will not create a validation set.
     indices : tuple[tuple[list[int], list[int] | None, list[int]]] | None, optional
-        Train, validation, test indices to use. If passed, will split the data
-        according to these indices rather than splitting it within the method
-        using the train_size and valid_size provided.
-        First item in the tuple should be the indices for the training set,
-        second item should be the indices for the validaton set (this could
-        be None if no validation set is required), and third item should be
-        indices for the test set.
+        Tuple of length n_splits where each item is also a tuple containing the
+        train, validation, test indices to use for each fold. If passed, will
+        split the data according to these indices rather than splitting
+        it within the method using the train_size and valid_size provided.
+        For each item in the tuple, the first item in the tuple should
+        be the indices for the training set, second item should be the indices
+        for the validaton set (this could be None if no validation set is required),
+        and third item should be indices for the test set.
     shuffle : bool, optional
         Whether or not to shuffle the dataset, by default False.
     random_state : int, optional
@@ -284,10 +285,10 @@ class Folds:
 
             # indices are provided, so use these to split the dataset
             # check that indices are a tuple of length k
-            msg = "if indices are provided, it must be a tuple of length k"
+            msg = "if indices are provided, it must be a tuple of length n_splits"
             if not isinstance(indices, tuple):
                 raise TypeError(msg)
-            if len(indices) != 3:
+            if len(indices) != self.n_splits:
                 raise ValueError(msg)
 
             for k in range(self.n_splits):

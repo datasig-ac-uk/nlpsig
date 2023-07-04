@@ -955,7 +955,7 @@ class PrepareData:
         reduced_embeddings: bool = False,
     ) -> tuple[torch.tensor, int]:
         """
-        Returns a `torch.tensor` object that can be passed into `SWNUNetwork` model.
+        Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SWNUNetwork` model.
 
         Parameters
         ----------
@@ -963,10 +963,10 @@ class PrepareData:
             Whether or not to keep time features within the path.
         include_time_features_in_input : bool
             Whether or not to concatenate the time feature into the feed-forward neural
-            network in the `SWNUNetwork` model.
+            network in the `nlpsig_networks.SWNUNetwork` model.
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
-            network in the `SWNUNetwork` model.
+            network in the `nlpsig_networks.SWNUNetwork` model.
             If we created a path for each item in the dataset, we will concatenate
             the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
             the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
@@ -980,9 +980,9 @@ class PrepareData:
         Returns
         -------
         Tuple[torch.tensor, int]
-            First element is a tensor to be inputted to `SWNUNetwork` model.
+            First element is a tensor to be inputted to `nlpsig_networks.SWNUNetwork` model.
             Second element is the number of channels in the path for which
-            we compute the path signature for in `SWNUNetwork`.
+            we compute the path signature for in `nlpsig_networks.SWNUNetwork`.
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
@@ -1090,3 +1090,128 @@ class PrepareData:
             path = torch.cat([path, repeat_emb], dim=2)
 
         return path, input_channels
+
+    def check_history_length_for_SeqSigNet(
+        self, shift: int, window_size: int, n: int
+    ) -> bool:
+        """
+        Helper function to detemine whether or not the path created (by `.pad()`)
+        has history length (k) long enough to create a tensor for
+        SeqSigNet network.
+
+        In particular, for a given shift, window_size and n, we must have
+        `history_length == shift * n + (window_size - shift)`.
+
+        Parameters
+        ----------
+        shift : int
+            Amount we are shifting the window.
+        window_size : int
+            Size of the window we use over the texts.
+        n : int
+            Number of units we wish to use in SeqSigNet.
+
+        Returns
+        -------
+        bool
+            Whether or not the history length in the path created by `.pad()`
+            satisfies the requested configuration in SeqSigNet.
+
+        Raises
+        ------
+        ValueError
+            If a path hasn't been created yet using `.pad()`.
+        """
+        if self.array_padded is None:
+            raise ValueError("Need to first call to create the path `.pad()`.")
+
+        required_history_length = shift * n + (window_size - shift)
+        if self.array_padded.shape[1] != required_history_length:
+            # required history length not met
+            print(
+                f"A history length of size {required_history_length} is required, "
+                f"but we have history length size of {self.array_padded.shape[1]}"
+            )
+            return False
+
+        # we have the required history length
+        return True
+
+    def get_torch_path_for_SeqSigNet(
+        self,
+        shift: int,
+        window_size: int,
+        n: int,
+        include_time_features_in_path: bool,
+        include_time_features_in_input: bool,
+        include_embedding_in_input: bool,
+        reduced_embeddings: bool = False,
+    ) -> tuple[torch.tensor, int]:
+        """
+        Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SeqSigNet` model.
+
+        Parameters
+        ----------
+        shift : int
+            Amount we are shifting the window.
+        window_size : int
+            Size of the window we use over the texts.
+        n : int
+            Number of units we wish to use in SeqSigNet.
+        include_time_features_in_path : bool
+            Whether or not to keep time features within the path.
+        include_time_features_in_input : bool
+            Whether or not to concatenate the time feature into the feed-forward neural
+            network in the `nlpsig_networks.SeqSigNet` model.
+        include_embedding_in_input : bool
+            Whether or not to concatenate the embeddings into the feed-forward neural
+            network in the `nlpsig_networks.SeqSigNet` model.
+            If we created a path for each item in the dataset, we will concatenate
+            the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
+            the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
+            If we created a path for each id in `.id_column`, then we concatenate
+            the embeddings in `.pooled_embeddings`.
+        reduced_embeddings : bool, optional
+            Whether or not to concatenate the dimension reduced embeddings, by default False.
+            This is ignored if we created a path for each if in `.id_column`,
+            i.e. `.pad_method='id'`.
+
+        Returns
+        -------
+        Tuple[torch.tensor, int]
+            First element is a tensor to be inputted to `nlpsig_networks.SeqSigNet` model.
+            Second element is the number of channels in the path for which
+            we compute the path signature for in `nlpsig_networks.SeqSigNet`.
+
+        Raises
+        ------
+        ValueError
+            If a path hasn't been created yet using `.pad()`.
+        """
+        if self.check_history_length_for_SeqSigNet(
+            shift=shift, window_size=window_size, n=n
+        ):
+            raise ValueError(
+                "We do not have the required history length for "
+                "this configuration of shift, window_size and n"
+            )
+
+        # obtain 3 dimensional tensor with dimensions [batch, history, channels]
+        swnu_path, input_channels = self.get_torch_path_for_SWNUNetwork(
+            include_time_features_in_path=include_time_features_in_path,
+            include_time_features_in_input=include_time_features_in_input,
+            include_embedding_in_input=include_embedding_in_input,
+            reduced_embeddings=reduced_embeddings,
+        )
+
+        # taking windows of the path created (determined by shift, window_size, n)
+        # obtain 4 dimensional tensor with dimsnions [batch, history, channels, units]
+        seqsignnet_path = torch.stack(
+            [
+                swnu_path[:, (i * shift) : (i * shift + window_size), :]
+                for i in range(n)
+            ],
+            dim=3,
+        )
+
+        return seqsignnet_path, input_channels

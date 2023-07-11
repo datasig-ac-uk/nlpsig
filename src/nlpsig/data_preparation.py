@@ -821,19 +821,19 @@ class PrepareData:
 
         return self.array_padded
 
-    def get_torch_time_feature(
+    def get_time_feature(
         self,
         time_feature: str = "timeline_index",
         standardise_method: str = "standardise",
-    ) -> dict[str, torch.tensor | Callable | None]:
+    ) -> dict[str, np.array | Callable | None]:
         """
-        Returns a `torch.tensor` object of the time_feature that is requested
+        Returns a `np.array` object of the time_feature that is requested
         (the string passed has to be one of the strings in `._time_feature_choices`).
 
         Parameters
         ----------
         time_feature : str, optional
-            Which time feature to obtain `torch.tensor` for, by default "timeline_index".
+            Which time feature to obtain `np.array` for, by default "timeline_index".
         standardise_method : str | None, optional
             If not None, applies standardisation to the time features, default None. Options:
             - "standardise": transforms by subtracting the mean and dividing by standard deviation
@@ -841,8 +841,8 @@ class PrepareData:
 
         Returns
         -------
-        dict[str, torch.tensor | Callable | None]
-            Dictionary where dict["time_feature"] stores the torch.tensor of the time feature,
+        dict[str, np.array | Callable | None]
+            Dictionary where dict["time_feature"] stores the `np.array` of the time feature,
             and dict["transform"] is the function to transform new data using the standardisation
             applied (if `standardise_method` is not None), or None.
 
@@ -867,15 +867,15 @@ class PrepareData:
                 vec=self.df[time_feature], method=standardise_method
             )
             return {
-                "time_feature": torch.tensor(standardise["standardised_pd"]),
+                "time_feature": np.array(standardise["standardised_pd"]),
                 "transform": standardise["transform"],
             }
 
-        return {"time_feature": torch.tensor(self.df[time_feature]), "transform": None}
+        return {"time_feature": np.array(self.df[time_feature]), "transform": None}
 
-    def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
+    def get_path(self, include_time_features: bool = True) -> np.array:
         """
-        Returns a torch.tensor object of the path.
+        Returns a `np.array` object of the path.
         Includes the time features by default (if they are present after the padding).
 
         Parameters
@@ -885,7 +885,7 @@ class PrepareData:
 
         Returns
         -------
-        torch.tensor
+        np.array
             Path.
 
         Raises
@@ -900,15 +900,11 @@ class PrepareData:
         if self.label_column is not None:
             # remove last two columns in the third dimension
             # (which store id_column and label_column)
-            path = torch.from_numpy(
-                self.array_padded[:, :, :-2].astype("float")
-            ).float()
+            path = self.array_padded[:, :, :-2].astype("float")
         else:
             # there are no labels, so just remove last column in third dimension
             # (which stores id_column)
-            path = torch.from_numpy(
-                self.array_padded[:, :, :-1].astype("float")
-            ).float()
+            path = self.array_padded[:, :, :-1].astype("float")
 
         if not include_time_features:
             # computes how many time features there are currently
@@ -921,19 +917,19 @@ class PrepareData:
 
         return path
 
-    def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
+    def get_embeddings(self, reduced_embeddings: bool = False) -> np.array:
         """
-        Returns a `torch.tensor` object of the embeddings.
+        Returns a `np.array` object of the embeddings.
 
         Parameters
         ----------
         reduced_embeddings : bool, optional
-            If True, returns `torch.tensor` of dimension reduced embeddings,
+            If True, returns `np.array` of dimension reduced embeddings,
             by default False.
 
         Returns
         -------
-        torch.tensor
+        np.array
             Embeddings.
         """
         if reduced_embeddings:
@@ -945,7 +941,7 @@ class PrepareData:
         else:
             colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
 
-        return torch.tensor(self.df[colnames].values)
+        return np.array(self.df[colnames].values)
 
     def get_torch_path_for_SWNUNetwork(
         self,

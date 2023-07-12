@@ -900,11 +900,11 @@ class PrepareData:
         if self.label_column is not None:
             # remove last two columns in the third dimension
             # (which store id_column and label_column)
-            path = self.array_padded[:, :, :-2].astype("float")
+            path = self.array_padded[:, :, :-2]
         else:
             # there are no labels, so just remove last column in third dimension
             # (which stores id_column)
-            path = self.array_padded[:, :, :-1].astype("float")
+            path = self.array_padded[:, :, :-1]
 
         if not include_time_features:
             # computes how many time features there are currently
@@ -915,7 +915,7 @@ class PrepareData:
             # removes any time features (if they're present)
             path = path[:, :, n_time_features:]
 
-        return path
+        return path.astype("float")
 
     def get_embeddings(self, reduced_embeddings: bool = False) -> np.array:
         """
@@ -1049,7 +1049,7 @@ class PrepareData:
 
         if include_time_features_in_path:
             # make sure path includes the time features
-            path = self.get_torch_path(include_time_features=True)
+            path = torch.from_numpy(self.get_path(include_time_features=True))
             input_channels = path.shape[2]
             if include_time_features_in_input:
                 # need to repeat the time feature columns
@@ -1062,7 +1062,7 @@ class PrepareData:
             if include_time_features_in_input:
                 # path doesn't need to include the time features
                 # but we still want to include them in the input to the FFN for classification
-                path = self.get_torch_path(include_time_features=True)
+                path = torch.from_numpy(self.get_path(include_time_features=True))
                 input_channels = path.shape[2] - n_time_features
                 # need to move time features to the end of the path
                 # if there are no time features, then we don't need to move anything
@@ -1079,7 +1079,7 @@ class PrepareData:
             else:
                 # path doesn't need to include the time features
                 # and don't need to include them in the input to the FFN for classification
-                path = self.get_torch_path(include_time_features=False)
+                path = torch.from_numpy(self.get_path(include_time_features=False))
                 input_channels = path.shape[2]
 
         if include_embedding_in_input:

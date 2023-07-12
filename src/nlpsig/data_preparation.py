@@ -821,19 +821,19 @@ class PrepareData:
 
         return self.array_padded
 
-    def get_torch_time_feature(
+    def get_time_feature(
         self,
         time_feature: str = "timeline_index",
         standardise_method: str = "standardise",
-    ) -> dict[str, torch.tensor | Callable | None]:
+    ) -> dict[str, np.array | Callable | None]:
         """
-        Returns a `torch.tensor` object of the time_feature that is requested
+        Returns a `np.array` object of the time_feature that is requested
         (the string passed has to be one of the strings in `._time_feature_choices`).
 
         Parameters
         ----------
         time_feature : str, optional
-            Which time feature to obtain `torch.tensor` for, by default "timeline_index".
+            Which time feature to obtain `np.array` for, by default "timeline_index".
         standardise_method : str | None, optional
             If not None, applies standardisation to the time features, default None. Options:
             - "standardise": transforms by subtracting the mean and dividing by standard deviation
@@ -841,8 +841,8 @@ class PrepareData:
 
         Returns
         -------
-        dict[str, torch.tensor | Callable | None]
-            Dictionary where dict["time_feature"] stores the torch.tensor of the time feature,
+        dict[str, np.array | Callable | None]
+            Dictionary where dict["time_feature"] stores the `np.array` of the time feature,
             and dict["transform"] is the function to transform new data using the standardisation
             applied (if `standardise_method` is not None), or None.
 
@@ -867,15 +867,15 @@ class PrepareData:
                 vec=self.df[time_feature], method=standardise_method
             )
             return {
-                "time_feature": torch.tensor(standardise["standardised_pd"]),
+                "time_feature": np.array(standardise["standardised_pd"]),
                 "transform": standardise["transform"],
             }
 
-        return {"time_feature": torch.tensor(self.df[time_feature]), "transform": None}
+        return {"time_feature": np.array(self.df[time_feature]), "transform": None}
 
-    def get_torch_path(self, include_time_features: bool = True) -> torch.tensor:
+    def get_path(self, include_time_features: bool = True) -> np.array:
         """
-        Returns a torch.tensor object of the path.
+        Returns a `np.array` object of the path.
         Includes the time features by default (if they are present after the padding).
 
         Parameters
@@ -885,7 +885,7 @@ class PrepareData:
 
         Returns
         -------
-        torch.tensor
+        np.array
             Path.
 
         Raises
@@ -900,15 +900,11 @@ class PrepareData:
         if self.label_column is not None:
             # remove last two columns in the third dimension
             # (which store id_column and label_column)
-            path = torch.from_numpy(
-                self.array_padded[:, :, :-2].astype("float")
-            ).float()
+            path = self.array_padded[:, :, :-2]
         else:
             # there are no labels, so just remove last column in third dimension
             # (which stores id_column)
-            path = torch.from_numpy(
-                self.array_padded[:, :, :-1].astype("float")
-            ).float()
+            path = self.array_padded[:, :, :-1]
 
         if not include_time_features:
             # computes how many time features there are currently
@@ -919,21 +915,21 @@ class PrepareData:
             # removes any time features (if they're present)
             path = path[:, :, n_time_features:]
 
-        return path
+        return path.astype("float")
 
-    def get_torch_embeddings(self, reduced_embeddings: bool = False) -> torch.tensor:
+    def get_embeddings(self, reduced_embeddings: bool = False) -> np.array:
         """
-        Returns a `torch.tensor` object of the embeddings.
+        Returns a `np.array` object of the embeddings.
 
         Parameters
         ----------
         reduced_embeddings : bool, optional
-            If True, returns `torch.tensor` of dimension reduced embeddings,
+            If True, returns `np.array` of dimension reduced embeddings,
             by default False.
 
         Returns
         -------
-        torch.tensor
+        np.array
             Embeddings.
         """
         if reduced_embeddings:
@@ -945,7 +941,7 @@ class PrepareData:
         else:
             colnames = [col for col in self.df.columns if re.match(r"^e\w*[0-9]", col)]
 
-        return torch.tensor(self.df[colnames].values)
+        return np.array(self.df[colnames].values)
 
     def get_torch_path_for_SWNUNetwork(
         self,
@@ -955,7 +951,7 @@ class PrepareData:
         reduced_embeddings: bool = False,
     ) -> tuple[torch.tensor, int]:
         """
-        Returns a `torch.tensor` object that can be passed into `SWNUNetwork` model.
+        Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SWNUNetwork` model.
 
         Parameters
         ----------
@@ -963,10 +959,10 @@ class PrepareData:
             Whether or not to keep time features within the path.
         include_time_features_in_input : bool
             Whether or not to concatenate the time feature into the feed-forward neural
-            network in the `SWNUNetwork` model.
+            network in the `nlpsig_networks.SWNUNetwork` model.
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
-            network in the `SWNUNetwork` model.
+            network in the `nlpsig_networks.SWNUNetwork` model.
             If we created a path for each item in the dataset, we will concatenate
             the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
             the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
@@ -980,9 +976,9 @@ class PrepareData:
         Returns
         -------
         Tuple[torch.tensor, int]
-            First element is a tensor to be inputted to `SWNUNetwork` model.
+            First element is a tensor to be inputted to `nlpsig_networks.SWNUNetwork` model.
             Second element is the number of channels in the path for which
-            we compute the path signature for in `SWNUNetwork`.
+            we compute the path signature for in `nlpsig_networks.SWNUNetwork`.
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
@@ -1053,7 +1049,7 @@ class PrepareData:
 
         if include_time_features_in_path:
             # make sure path includes the time features
-            path = self.get_torch_path(include_time_features=True)
+            path = torch.from_numpy(self.get_path(include_time_features=True))
             input_channels = path.shape[2]
             if include_time_features_in_input:
                 # need to repeat the time feature columns
@@ -1066,7 +1062,7 @@ class PrepareData:
             if include_time_features_in_input:
                 # path doesn't need to include the time features
                 # but we still want to include them in the input to the FFN for classification
-                path = self.get_torch_path(include_time_features=True)
+                path = torch.from_numpy(self.get_path(include_time_features=True))
                 input_channels = path.shape[2] - n_time_features
                 # need to move time features to the end of the path
                 # if there are no time features, then we don't need to move anything
@@ -1083,10 +1079,135 @@ class PrepareData:
             else:
                 # path doesn't need to include the time features
                 # and don't need to include them in the input to the FFN for classification
-                path = self.get_torch_path(include_time_features=False)
+                path = torch.from_numpy(self.get_path(include_time_features=False))
                 input_channels = path.shape[2]
 
         if include_embedding_in_input:
             path = torch.cat([path, repeat_emb], dim=2)
 
         return path, input_channels
+
+    def check_history_length_for_SeqSigNet(
+        self, shift: int, window_size: int, n: int
+    ) -> bool:
+        """
+        Helper function to detemine whether or not the path created (by `.pad()`)
+        has history length (k) long enough to create a tensor for
+        SeqSigNet network.
+
+        In particular, for a given shift, window_size and n, we must have
+        `history_length == shift * n + (window_size - shift)`.
+
+        Parameters
+        ----------
+        shift : int
+            Amount we are shifting the window.
+        window_size : int
+            Size of the window we use over the texts.
+        n : int
+            Number of units we wish to use in SeqSigNet.
+
+        Returns
+        -------
+        bool
+            Whether or not the history length in the path created by `.pad()`
+            satisfies the requested configuration in SeqSigNet.
+
+        Raises
+        ------
+        ValueError
+            If a path hasn't been created yet using `.pad()`.
+        """
+        if self.array_padded is None:
+            raise ValueError("Need to first call to create the path `.pad()`.")
+
+        required_history_length = shift * n + (window_size - shift)
+        if self.array_padded.shape[1] != required_history_length:
+            # required history length not met
+            print(
+                f"A history length of size {required_history_length} is required, "
+                f"but we have history length size of {self.array_padded.shape[1]}"
+            )
+            return False
+
+        # we have the required history length
+        return True
+
+    def get_torch_path_for_SeqSigNet(
+        self,
+        shift: int,
+        window_size: int,
+        n: int,
+        include_time_features_in_path: bool,
+        include_time_features_in_input: bool,
+        include_embedding_in_input: bool,
+        reduced_embeddings: bool = False,
+    ) -> tuple[torch.tensor, int]:
+        """
+        Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SeqSigNet` model.
+
+        Parameters
+        ----------
+        shift : int
+            Amount we are shifting the window.
+        window_size : int
+            Size of the window we use over the texts.
+        n : int
+            Number of units we wish to use in SeqSigNet.
+        include_time_features_in_path : bool
+            Whether or not to keep time features within the path.
+        include_time_features_in_input : bool
+            Whether or not to concatenate the time feature into the feed-forward neural
+            network in the `nlpsig_networks.SeqSigNet` model.
+        include_embedding_in_input : bool
+            Whether or not to concatenate the embeddings into the feed-forward neural
+            network in the `nlpsig_networks.SeqSigNet` model.
+            If we created a path for each item in the dataset, we will concatenate
+            the embeddings in `.embeddings` (if `reduced_embeddings=False`) or
+            the embeddings in `.reduced_embeddings` (if `reduced_embeddings=True`).
+            If we created a path for each id in `.id_column`, then we concatenate
+            the embeddings in `.pooled_embeddings`.
+        reduced_embeddings : bool, optional
+            Whether or not to concatenate the dimension reduced embeddings, by default False.
+            This is ignored if we created a path for each if in `.id_column`,
+            i.e. `.pad_method='id'`.
+
+        Returns
+        -------
+        Tuple[torch.tensor, int]
+            First element is a tensor to be inputted to `nlpsig_networks.SeqSigNet` model.
+            Second element is the number of channels in the path for which
+            we compute the path signature for in `nlpsig_networks.SeqSigNet`.
+
+        Raises
+        ------
+        ValueError
+            If a path hasn't been created yet using `.pad()`.
+        """
+        if self.check_history_length_for_SeqSigNet(
+            shift=shift, window_size=window_size, n=n
+        ):
+            raise ValueError(
+                "We do not have the required history length for "
+                "this configuration of shift, window_size and n"
+            )
+
+        # obtain 3 dimensional tensor with dimensions [batch, history, channels]
+        swnu_path, input_channels = self.get_torch_path_for_SWNUNetwork(
+            include_time_features_in_path=include_time_features_in_path,
+            include_time_features_in_input=include_time_features_in_input,
+            include_embedding_in_input=include_embedding_in_input,
+            reduced_embeddings=reduced_embeddings,
+        )
+
+        # taking windows of the path created (determined by shift, window_size, n)
+        # obtain 4 dimensional tensor with dimsnions [batch, history, channels, units]
+        seqsignnet_path = torch.stack(
+            [
+                swnu_path[:, (i * shift) : (i * shift + window_size), :]
+                for i in range(n)
+            ],
+            dim=3,
+        )
+
+        return seqsignnet_path, input_channels

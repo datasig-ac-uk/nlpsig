@@ -1184,7 +1184,7 @@ class PrepareData:
         ValueError
             If a path hasn't been created yet using `.pad()`.
         """
-        if self.check_history_length_for_SeqSigNet(
+        if not self.check_history_length_for_SeqSigNet(
             shift=shift, window_size=window_size, n=n
         ):
             raise ValueError(

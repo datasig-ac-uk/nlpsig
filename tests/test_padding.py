@@ -22,7 +22,7 @@ def test_pad_dataframe_zero_padding_from_below_without_label(test_df_no_time, em
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=True,
     )
@@ -61,7 +61,7 @@ def test_pad_dataframe_zero_padding_from_below_with_label(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=True,
     )
@@ -99,7 +99,7 @@ def test_pad_dataframe_zero_padding_from_above_without_label(test_df_no_time, em
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -137,7 +137,7 @@ def test_pad_dataframe_zero_padding_from_above_with_label(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -176,7 +176,7 @@ def test_pad_dataframe_non_zero_padding_from_below(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=True,
     )
@@ -208,7 +208,7 @@ def test_pad_dataframe_non_zero_padding_from_above(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -236,8 +236,8 @@ def test_pad_dataframe_k_equal_zero(test_df_no_time, test_df_to_pad, emb):
             df=test_df_to_pad,
             k=0,
             zero_padding=False,
-            colnames=obj._obtain_colnames("full"),
-            time_feature=["timeline_index"],
+            colnames=obj._obtain_embedding_colnames("full"),
+            features=["timeline_index"],
             id=0,
             pad_from_below=False,
         )
@@ -257,8 +257,8 @@ def test_pad_dataframe_k_negative(test_df_no_time, test_df_to_pad, emb):
             df=test_df_to_pad,
             k=-1,
             zero_padding=False,
-            colnames=obj._obtain_colnames("full"),
-            time_feature=["timeline_index"],
+            colnames=obj._obtain_embedding_colnames("full"),
+            features=["timeline_index"],
             id=0,
             pad_from_below=False,
         )
@@ -279,7 +279,7 @@ def test_pad_dataframe_no_pad(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -304,7 +304,7 @@ def test_pad_dataframe_cutoff(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -326,8 +326,8 @@ def test_pad_id_k_equal_zero(test_df_no_time, emb):
         obj._pad_id(
             k=-1,
             zero_padding=False,
-            colnames=obj._obtain_colnames("full"),
-            time_feature=["timeline_index"],
+            colnames=obj._obtain_embedding_colnames("full"),
+            features=["timeline_index"],
             id=0,
             pad_from_below=False,
         )
@@ -345,8 +345,8 @@ def test_pad_id_k_negative(test_df_no_time, emb):
         obj._pad_id(
             k=-1,
             zero_padding=False,
-            colnames=obj._obtain_colnames("full"),
-            time_feature=["timeline_index"],
+            colnames=obj._obtain_embedding_colnames("full"),
+            features=["timeline_index"],
             id=0,
             pad_from_below=False,
         )
@@ -366,7 +366,7 @@ def test_pad_id_zero_padding_from_below(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=True,
     )
@@ -402,7 +402,7 @@ def test_pad_id_zero_padding_from_above(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -443,7 +443,7 @@ def test_pad_id_non_zero_padding_from_below(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=True,
     )
@@ -477,7 +477,7 @@ def test_pad_id_non_zero_padding_from_above(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -508,7 +508,7 @@ def test_pad_id_no_pad(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -536,7 +536,7 @@ def test_pad_id_cutoff(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         id=0,
         pad_from_below=False,
     )
@@ -557,7 +557,7 @@ def test_pad_history_zero_padding_no_history_from_below(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=True,
@@ -587,7 +587,7 @@ def test_pad_history_zero_padding_no_history_from_above(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -619,7 +619,7 @@ def test_pad_history_zero_padding_some_history_from_below(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=True,
@@ -655,7 +655,7 @@ def test_pad_history_zero_padding_some_history_from_above(test_df_no_time, emb):
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -688,7 +688,7 @@ def test_pad_history_non_zero_padding_no_history_from_below(test_df_no_time, emb
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=True,
@@ -718,7 +718,7 @@ def test_pad_history_non_zero_padding_no_history_from_above(test_df_no_time, emb
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -750,7 +750,7 @@ def test_pad_history_non_zero_padding_some_history_from_below(test_df_no_time, e
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=True,
@@ -780,7 +780,7 @@ def test_pad_history_non_zero_padding_some_history_from_above(test_df_no_time, e
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -814,7 +814,7 @@ def test_pad_history_just_enough_history(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -845,7 +845,7 @@ def test_pad_history_many_history_cutoff(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=False,
         pad_from_below=False,
@@ -872,7 +872,7 @@ def test_pad_history_no_history_zero_padding_include_current_from_below(
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=True,
@@ -911,7 +911,7 @@ def test_pad_history_no_history_zero_padding_include_current_from_above(
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -950,7 +950,7 @@ def test_pad_history_some_history_zero_padding_include_current_from_below(
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=True,
@@ -990,7 +990,7 @@ def test_pad_history_some_history_zero_padding_include_current_from_above(
         k=k,
         zero_padding=True,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -1028,7 +1028,7 @@ def test_pad_history_no_history_non_zero_padding_include_current_from_below(
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=True,
@@ -1056,7 +1056,7 @@ def test_pad_history_no_history_non_zero_padding_include_current_from_above(
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -1086,7 +1086,7 @@ def test_pad_history_some_history_non_zero_padding_include_current_from_below(
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=True,
@@ -1119,7 +1119,7 @@ def test_pad_history_some_history_non_zero_padding_include_current_from_above(
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -1152,7 +1152,7 @@ def test_pad_history_just_enough_history_include_current(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -1182,7 +1182,7 @@ def test_pad_history_many_history_include_current(test_df_no_time, emb):
         k=k,
         zero_padding=False,
         colnames=colnames,
-        time_feature=["timeline_index"],
+        features=["timeline_index"],
         index=index,
         include_current_embedding=True,
         pad_from_below=False,
@@ -1206,7 +1206,7 @@ def test_pad_by_id_k_last(test_df_no_time, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method=None,
         embeddings="full",
         include_current_embedding=True,
@@ -1214,7 +1214,7 @@ def test_pad_by_id_k_last(test_df_no_time, emb):
     )
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1233,7 +1233,7 @@ def test_pad_by_id_max(test_df_no_time, emb):
         pad_by="id",
         method="max",
         zero_padding=True,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method=None,
         embeddings="full",
         include_current_embedding=True,
@@ -1241,7 +1241,7 @@ def test_pad_by_id_max(test_df_no_time, emb):
     )
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     k = obj.original_df["id_col"].value_counts().max()
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
@@ -1263,7 +1263,7 @@ def test_pad_by_history_k_last(test_df_no_time, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method=None,
         embeddings="full",
         include_current_embedding=True,
@@ -1271,7 +1271,7 @@ def test_pad_by_history_k_last(test_df_no_time, emb):
     )
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1290,7 +1290,7 @@ def test_pad_by_history_max(test_df_no_time, emb):
         pad_by="history",
         method="max",
         zero_padding=True,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method=None,
         embeddings="full",
         include_current_embedding=True,
@@ -1298,7 +1298,7 @@ def test_pad_by_history_max(test_df_no_time, emb):
     )
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     k = obj.original_df["id_col"].value_counts().max()
     assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
@@ -1319,7 +1319,7 @@ def test_pad_wrong_pad_by(test_df_no_time, emb):
             pad_by="fake_pad_by",
             method="max",
             zero_padding=True,
-            time_feature="timeline_index",
+            features="timeline_index",
             standardise_method=None,
             embeddings="full",
             include_current_embedding=True,
@@ -1339,7 +1339,7 @@ def test_pad_wrong_method(test_df_no_time, emb):
             pad_by="id",
             method="fake_method",
             zero_padding=True,
-            time_feature="timeline_index",
+            features="timeline_index",
             standardise_method=None,
             embeddings="full",
             include_current_embedding=True,
@@ -1360,7 +1360,7 @@ def test_pad_by_id_k_last_standardise_standardise(test_df_no_time, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method="standardise",
         embeddings="full",
         include_current_embedding=True,
@@ -1372,7 +1372,7 @@ def test_pad_by_id_k_last_standardise_standardise(test_df_no_time, emb):
     pd.testing.assert_series_equal(obj.df["timeline_index"], standardise_vec)
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1393,7 +1393,7 @@ def test_pad_by_id_k_last_standardise_normalise(test_df_no_time, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method="normalise",
         embeddings="full",
         include_current_embedding=True,
@@ -1405,7 +1405,7 @@ def test_pad_by_id_k_last_standardise_normalise(test_df_no_time, emb):
     pd.testing.assert_series_equal(obj.df["timeline_index"], normalise_vec)
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1426,7 +1426,7 @@ def test_pad_by_id_k_last_standardise_minmax(test_df_no_time, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature="timeline_index",
+        features="timeline_index",
         standardise_method="minmax",
         embeddings="full",
         include_current_embedding=True,
@@ -1438,7 +1438,7 @@ def test_pad_by_id_k_last_standardise_minmax(test_df_no_time, emb):
     pd.testing.assert_series_equal(obj.df["timeline_index"], minmax_vec)
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._time_feature_choices) + emb.shape[1] + 1 + 1
+    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1454,7 +1454,7 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
         label_column="label_col",
     )
     k = 10
-    time_features = ["timeline_index", "time_encoding", "time_diff"]
+    featuress = ["timeline_index", "time_encoding", "time_diff"]
     # expected standardised vectors
     standardised_vec = obj._standardise_pd(
         vec=obj.df["timeline_index"], method="standardise"
@@ -1469,7 +1469,7 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        time_feature=time_features,
+        features=featuress,
         standardise_method=["standardise", "normalise", None],
         embeddings="full",
         include_current_embedding=True,
@@ -1480,7 +1480,7 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
     pd.testing.assert_series_equal(obj.df["time_diff"], none_standardisation_vec)
     # number of columns is:
     # number of time features + number of columns in emb + id col + label col
-    ncol = len(time_features) + emb.shape[1] + 1 + 1
+    ncol = len(featuress) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray

@@ -97,7 +97,7 @@ class PrepareData:
 
         self.pooled_embeddings: np.array | None = pooled_embeddings
         # obtain time features
-        self._time_feature_choices: list[str] = []
+        self._feature_list: list[str] = []
         self.time_features_added: bool = False
         self.df = self._set_time_features()
         self.df_padded: pd.DataFrame | None = None
@@ -207,13 +207,13 @@ class PrepareData:
             return None
         print("[INFO] Adding time feature columns into dataframe in `.df`.")
         if "datetime" in self.df.columns:
-            self._time_feature_choices += ["time_encoding", "time_diff"]
+            self._feature_list += ["time_encoding", "time_diff"]
 
             # checking 'datetime' column is datatime type
             self.df["datetime"] = pd.to_datetime(self.df["datetime"])
 
             # obtain time encoding by computing the fraction of year it is in
-            print("[INFO] Adding 'time_encoding' and feature...")
+            print("[INFO] Adding 'time_encoding' feature...")
             self.df["time_encoding"] = self.df["datetime"].map(
                 lambda t: self._time_fraction(t)
             )
@@ -224,7 +224,7 @@ class PrepareData:
             self.df = self.df.sort_values(by=[self.id_column, "datetime"])
 
             # calculate time difference between posts
-            print("[INFO] Adding 'time_diff' and feature...")
+            print("[INFO] Adding 'time_diff' feature...")
             self.df["time_diff"] = list(
                 self.df.groupby(self.id_column)
                 .apply(
@@ -249,7 +249,7 @@ class PrepareData:
                 "we assume that the data is ordered by time with respect to the id."
             )
         # assign index for each post in each timeline
-        self._time_feature_choices += ["timeline_index"]
+        self._feature_list += ["timeline_index"]
 
         print("[INFO] Adding 'timeline_index' feature...")
         self.df["timeline_index"] = list(
@@ -266,7 +266,7 @@ class PrepareData:
 
         return self.df
 
-    def _obtain_colnames(self, embeddings: str) -> list[str]:
+    def _obtain_embedding_colnames(self, embeddings: str) -> list[str]:
         """
         [Private] Obtains the column names storing the embeddings.
 
@@ -308,62 +308,85 @@ class PrepareData:
 
         return colnames
 
-    def _obtain_time_feature_columns(
-        self,
-        time_feature: list[str] | str | None,
-    ) -> list[str]:
+    def _check_feature_exists(self, feature: str) -> bool:
         """
-        [Private] Obtains the column names storing the time features requested.
-        If a string or list is passed, it essentially just checks if it is an
-        available time feature that is stored in `_time_feature_choices` and returns
-        the time features in a list.
+        [Private] Checks if `feature` is a column in `self._feature_list`. If not,
+        check if `self.df` dataframe and if it is, add this to `self._feature_list`.
 
         Parameters
         ----------
-        time_feature : list[str] | str | None
+        feature : str
+            Feature name.
+
+        Returns
+        -------
+        bool
+            True if `feature` is in `self._feature_list` or is a
+            column name in `self.df`.
+        """
+        if (feature not in self._feature_list) and (feature in self.df.columns):
+            # not in ._feature_list, but is a valid column name in self.df,
+            # so add to feature list
+            self._feature_list += [feature]
+            
+        return feature in self._feature_list
+    
+    def _obtain_feature_columns(
+        self,
+        features: list[str] | str | None,
+    ) -> list[str]:
+        """
+        [Private] Obtains the column names storing the feature(s) requested.
+        If a string or list is passed, it essentially just checks if it is an
+        available feature that is stored in `_feature_list` and returns
+        the feature(s) in a list.
+
+        Parameters
+        ----------
+        features : list[str] | str | None
             If is a string, it must be in the list found in
-            `_time_feature_choices` attribute. If is a list,
+            `_feature_list` attribute. If is a list,
             each item must be a string and it must be in the
-            list found in `_time_feature_choices` attribute.
+            list found in `_feature_list` attribute.
 
         Returns
         -------
         list[str]
-            List of column names which store the time features.
+            List of column names which store the feature(s).
 
         Raises
         ------
         ValueError
-            if `time_feature` is a string, and it is not found in `_time_feature_choices`.
-        ValueError
-            if `time_feature` is a list of strings, and one of the items
-            is not found in `_time_feature_choices`.
-        TypeError
-            if `time_feature` is neither a string or a list.
+            if `features` is a string, and it is not found in
+            `_feature_list` attribute or if `features` is a
+            list of strings, and one of the items
+            is not found in `_feature_list` attribute.
         """
-        if time_feature is None:
-            time_feature = []
+        if features is None:
+            # no features are wanted, return an empty list
+            features = []
         else:
-            if not self.time_features_added:
-                self.set_time_features()
-            if isinstance(time_feature, str):
-                if time_feature not in self._time_feature_choices:
-                    raise ValueError(
-                        "If `time_feature` is a string, it must "
-                        f"be in {self._time_feature_choices}."
-                    )
-                time_feature = [time_feature]
-            elif isinstance(time_feature, list):
-                if not all(item in self._time_feature_choices for item in time_feature):
-                    raise ValueError(
-                        f"Each item in `time_feature` should be in {self._time_feature_choices}."
-                    )
+            # convert to list of strings
+            if isinstance(features, str):
+                features = [features]
+            
+            if isinstance(features, list):    
+                # check each item in features is in self._feature_list
+                # if it isn't, but is a column in self.df, it will add
+                # it to self._feature_list
+                for item in features:
+                    if not self._check_feature_exists(feature=item):
+                        raise ValueError(
+                            f"{item} must be in `self.feature_list`: {self._feature_list},"
+                            "or a column in `self.df`."
+                        )
             else:
+                # features is neither None, a string or a list
                 raise TypeError(
                     "`time_feature` must be either None, a string, or a list of strings."
                 )
 
-        return time_feature
+        return features
 
     def _pad_dataframe(
         self,
@@ -371,7 +394,7 @@ class PrepareData:
         k: int,
         zero_padding: bool,
         colnames: list[str],
-        time_feature: list[str],
+        features: list[str],
         id: int,
         pad_from_below: bool,
     ) -> pd.DataFrame:
@@ -393,8 +416,8 @@ class PrepareData:
             text associated to the id.
         colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : list[str]
-            List of time feature column names that we wish to keep from the dataframe.
+        features : list[str]
+            List of feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
         pad_from_below: bool
@@ -412,7 +435,7 @@ class PrepareData:
         """
         if k <= 0:
             raise ValueError("`k` must be a positive integer.")
-        columns = time_feature + colnames + [self.id_column]
+        columns = features + colnames + [self.id_column]
         if self.label_column is not None:
             columns += [self.label_column]
 
@@ -424,7 +447,7 @@ class PrepareData:
                 if self.label_column is not None:
                     # set labels to be -1 to indicate that they're padded values
                     data_dict = {
-                        **dict.fromkeys(time_feature, [0]),
+                        **dict.fromkeys(features, [0]),
                         **{c: [0] for c in colnames},
                         self.id_column: [id],
                         self.label_column: [-1],
@@ -432,7 +455,7 @@ class PrepareData:
                 else:
                     # no label column to add
                     data_dict = {
-                        **dict.fromkeys(time_feature, [0]),
+                        **dict.fromkeys(features, [0]),
                         **{c: [0] for c in colnames},
                         self.id_column: [id],
                     }
@@ -471,7 +494,7 @@ class PrepareData:
         k: int,
         zero_padding: bool,
         colnames: list[str],
-        time_feature: list[str],
+        features: list[str],
         id: int,
         pad_from_below: bool,
     ) -> pd.DataFrame:
@@ -497,8 +520,8 @@ class PrepareData:
             text associated to the id.
         colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : list[str]
-            List of time feature column names that we wish to keep from the dataframe.
+        features : list[str]
+            List of feature column names that we wish to keep from the dataframe.
         id : int
             Which id are we padding.
         pad_from_below: bool
@@ -523,7 +546,7 @@ class PrepareData:
             k=k,
             zero_padding=zero_padding,
             colnames=colnames,
-            time_feature=time_feature,
+            features=features,
             id=id,
             pad_from_below=pad_from_below,
         )
@@ -533,7 +556,7 @@ class PrepareData:
         k: int,
         zero_padding: bool,
         colnames: list[str],
-        time_feature: list[str],
+        features: list[str],
         index: int,
         include_current_embedding: bool,
         pad_from_below: bool,
@@ -559,8 +582,8 @@ class PrepareData:
             text associated to the id.
         colnames : list[str]
             List of column names that we wish to keep from the dataframe.
-        time_feature : list[str]
-            List of time feature column names that we wish to keep from the dataframe.
+        features : list[str]
+            List of features column names that we wish to keep from the dataframe.
         index : int
             Which index of the dataframe are we padding.
         pad_from_below: bool
@@ -606,7 +629,7 @@ class PrepareData:
             k=k,
             zero_padding=zero_padding,
             colnames=colnames,
-            time_feature=time_feature,
+            features=features,
             id=id,
             pad_from_below=pad_from_below,
         )
@@ -653,7 +676,7 @@ class PrepareData:
         method: str = "k_last",
         zero_padding: bool = True,
         k: int = 5,
-        time_feature: list[str] | str | None = None,
+        features: list[str] | str | None = None,
         standardise_method: list[str] | str | None = None,
         embeddings: str = "full",
         include_current_embedding: bool = True,
@@ -697,10 +720,10 @@ class PrepareData:
             text associated to the id.
         k : int, optional
             The requested length of the path, default 5. This is ignored if `method="max"`.
-        time_feature : list[str] | str | None, optional
-            Which time feature(s) to keep. If None, then doesn't keep any.
+        features : list[str] | str | None, optional
+            Which feature(s) to keep. If None, then doesn't keep any.
         standardise_method : str | None, optional
-            If not None, applies standardisation to the time features, default None. Options:
+            If not None, applies standardisation to the features, default None. Options:
 
             - "standardise": transforms by subtracting the mean and dividing by standard deviation
             - "normalise": transforms by dividing by the sum
@@ -750,35 +773,35 @@ class PrepareData:
         else:
             raise ValueError("`method` must be either 'k_last' or 'max'.")
 
-        # obtain time feature colnames
-        time_feature_colnames = self._obtain_time_feature_columns(
-            time_feature=time_feature
+        # obtain feature colnames
+        feature_colnames = self._obtain_feature_columns(
+            features=features
         )
-        if len(time_feature_colnames) > 0:
+        if len(feature_colnames) > 0:
             if isinstance(standardise_method, str):
-                standardise_method = [standardise_method] * len(time_feature_colnames)
+                standardise_method = [standardise_method] * len(feature_colnames)
             elif isinstance(standardise_method, list) and (
-                len(standardise_method) != len(time_feature_colnames)
+                len(standardise_method) != len(feature_colnames)
             ):
                 raise ValueError(
                     "if `standardise_method` is a list, it must have the same length "
-                    f"as the number of time features requested: {len(time_feature_colnames)}."
+                    f"as the number of features requested: {len(feature_colnames)}."
                 )
 
         if standardise_method is not None:
-            # standardises the time features in .df
+            # standardises the features in .df
             self.standardise_transform = {}
-            for i in range(len(time_feature_colnames)):
+            for i in range(len(feature_colnames)):
                 standardise = self._standardise_pd(
-                    vec=self.df[time_feature_colnames[i]], method=standardise_method[i]
+                    vec=self.df[feature_colnames[i]], method=standardise_method[i]
                 )
-                self.standardise_transform[time_feature_colnames[i]] = standardise[
+                self.standardise_transform[feature_colnames[i]] = standardise[
                     "transform"
                 ]
-                self.df[time_feature_colnames[i]] = standardise["standardised_pd"]
+                self.df[feature_colnames[i]] = standardise["standardised_pd"]
 
         # obtain colnames of embeddings
-        colnames = self._obtain_colnames(embeddings=embeddings)
+        colnames = self._obtain_embedding_colnames(embeddings=embeddings)
 
         if pad_by == "id":
             # pad each of the ids in id_column and store them in a list
@@ -787,7 +810,7 @@ class PrepareData:
                     k=k,
                     zero_padding=zero_padding,
                     colnames=colnames,
-                    time_feature=time_feature_colnames,
+                    features=feature_colnames,
                     id=id,
                     pad_from_below=pad_from_below,
                 )
@@ -801,7 +824,7 @@ class PrepareData:
                     k=k,
                     zero_padding=zero_padding,
                     colnames=colnames,
-                    time_feature=time_feature_colnames,
+                    features=feature_colnames,
                     index=index,
                     include_current_embedding=include_current_embedding,
                     pad_from_below=pad_from_below,
@@ -828,7 +851,7 @@ class PrepareData:
     ) -> dict[str, np.array | Callable | None]:
         """
         Returns a `np.array` object of the time_feature that is requested
-        (the string passed has to be one of the strings in `._time_feature_choices`).
+        (the string passed has to be one of the strings in `._feature_list`).
 
         Parameters
         ----------
@@ -850,11 +873,11 @@ class PrepareData:
         ------
         ValueError
             if `time_feature` is not in the possible time_features
-            (can be found in `._time_feature_choices` attribute).
+            (can be found in `._feature_list` attribute).
         """
-        if time_feature not in self._time_feature_choices:
+        if time_feature not in self._feature_list:
             raise ValueError(
-                f"`time_feature` should be in {self._time_feature_choices}."
+                f"`time_feature` should be in {self._feature_list}."
             )
 
         if not self.time_features_added:
@@ -873,15 +896,15 @@ class PrepareData:
 
         return {"time_feature": np.array(self.df[time_feature]), "transform": None}
 
-    def get_path(self, include_time_features: bool = True) -> np.array:
+    def get_path(self, include_features: bool = True) -> np.array:
         """
         Returns a `np.array` object of the path.
-        Includes the time features by default (if they are present after the padding).
+        Includes the features by default (if they are present after the padding).
 
         Parameters
         ----------
-        include_time_features : bool, optional
-            Whether or not to keep the time features, by default True.
+        include_features : bool, optional
+            Whether or not to keep the features, by default True.
 
         Returns
         -------
@@ -906,14 +929,14 @@ class PrepareData:
             # (which stores id_column)
             path = self.array_padded[:, :, :-1]
 
-        if not include_time_features:
-            # computes how many time features there are currently
-            # (which occur in the first n_time_features columns)
-            n_time_features = len(
-                [item for item in self._time_feature_choices if item in self.df_padded]
+        if not include_features:
+            # computes how many features there are currently
+            # (which occur in the first n_features columns)
+            n_features = len(
+                [item for item in self._feature_list if item in self.df_padded]
             )
-            # removes any time features (if they're present)
-            path = path[:, :, n_time_features:]
+            # removes any features (if they're present)
+            path = path[:, :, n_features:]
 
         return path.astype("float")
 
@@ -945,8 +968,8 @@ class PrepareData:
 
     def get_torch_path_for_SWNUNetwork(
         self,
-        include_time_features_in_path: bool,
-        include_time_features_in_input: bool,
+        include_features_in_path: bool,
+        include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
     ) -> tuple[torch.tensor, int]:
@@ -955,10 +978,10 @@ class PrepareData:
 
         Parameters
         ----------
-        include_time_features_in_path : bool
-            Whether or not to keep time features within the path.
-        include_time_features_in_input : bool
-            Whether or not to concatenate the time feature into the feed-forward neural
+        include_features_in_path : bool
+            Whether or not to keep the additional features (e.g. time features) within the path.
+        include_features_in_input : bool
+            Whether or not to concatenate the additional features into the feed-forward neural
             network in the `nlpsig_networks.SWNUNetwork` model.
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
@@ -984,10 +1007,10 @@ class PrepareData:
             raise ValueError("Need to first call to create the path `.pad()`.")
 
         # obtains a torch tensor which can be inputted into deepsignet
-        # computes how many time features there are currently
-        # (which occur in the first n_time_features columns)
-        n_time_features = len(
-            [item for item in self._time_feature_choices if item in self.df_padded]
+        # computes how many features there are currently
+        # (which occur in the first n_features columns)
+        n_features = len(
+            [item for item in self._feature_list if item in self.df_padded]
         )
 
         if include_embedding_in_input:
@@ -1047,39 +1070,39 @@ class PrepareData:
                 .transpose(1, 2)
             )
 
-        if include_time_features_in_path:
-            # make sure path includes the time features
-            path = torch.from_numpy(self.get_path(include_time_features=True))
+        if include_features_in_path:
+            # make sure path includes the features
+            path = torch.from_numpy(self.get_path(include_features=True))
             input_channels = path.shape[2]
-            if include_time_features_in_input:
-                # need to repeat the time feature columns
-                # if there are no time features, then we don't need to repeat anything
-                if n_time_features == 1:
+            if include_features_in_input:
+                # need to repeat the feature columns
+                # if there are no features, then we don't need to repeat anything
+                if n_features == 1:
                     path = torch.cat([path, path[:, :, 0].unsqueeze(2)], dim=2)
-                elif n_time_features > 1:
-                    path = torch.cat([path, path[:, :, 0:n_time_features]], dim=2)
+                elif n_features > 1:
+                    path = torch.cat([path, path[:, :, 0:n_features]], dim=2)
         else:
-            if include_time_features_in_input:
-                # path doesn't need to include the time features
+            if include_features_in_input:
+                # path doesn't need to include the features
                 # but we still want to include them in the input to the FFN for classification
-                path = torch.from_numpy(self.get_path(include_time_features=True))
-                input_channels = path.shape[2] - n_time_features
-                # need to move time features to the end of the path
-                # if there are no time features, then we don't need to move anything
-                if n_time_features == 1:
+                path = torch.from_numpy(self.get_path(include_features=True))
+                input_channels = path.shape[2] - n_features
+                # need to move features to the end of the path
+                # if there are no features, then we don't need to move anything
+                if n_features == 1:
                     path = torch.cat(
-                        [path[:, :, n_time_features:], path[:, :, 0].unsqueeze(2)],
+                        [path[:, :, n_features:], path[:, :, 0].unsqueeze(2)],
                         dim=2,
                     )
-                elif n_time_features > 1:
+                elif n_features > 1:
                     path = torch.cat(
-                        [path[:, :, n_time_features:], path[:, :, 0:n_time_features]],
+                        [path[:, :, n_features:], path[:, :, 0:n_features]],
                         dim=2,
                     )
             else:
-                # path doesn't need to include the time features
+                # path doesn't need to include the features
                 # and don't need to include them in the input to the FFN for classification
-                path = torch.from_numpy(self.get_path(include_time_features=False))
+                path = torch.from_numpy(self.get_path(include_features=False))
                 input_channels = path.shape[2]
 
         if include_embedding_in_input:
@@ -1138,8 +1161,8 @@ class PrepareData:
         shift: int,
         window_size: int,
         n: int,
-        include_time_features_in_path: bool,
-        include_time_features_in_input: bool,
+        include_features_in_path: bool,
+        include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
     ) -> tuple[torch.tensor, int]:
@@ -1154,10 +1177,10 @@ class PrepareData:
             Size of the window we use over the texts.
         n : int
             Number of units we wish to use in SeqSigNet.
-        include_time_features_in_path : bool
-            Whether or not to keep time features within the path.
-        include_time_features_in_input : bool
-            Whether or not to concatenate the time feature into the feed-forward neural
+        include_features_in_path : bool
+            Whether or not to keep the additional features (e.g. time features) within the path.
+        include_features_in_input : bool
+            Whether or not to concatenate the additional features into the feed-forward neural
             network in the `nlpsig_networks.SeqSigNet` model.
         include_embedding_in_input : bool
             Whether or not to concatenate the embeddings into the feed-forward neural
@@ -1194,8 +1217,8 @@ class PrepareData:
 
         # obtain 3 dimensional tensor with dimensions [batch, history, channels]
         swnu_path, input_channels = self.get_torch_path_for_SWNUNetwork(
-            include_time_features_in_path=include_time_features_in_path,
-            include_time_features_in_input=include_time_features_in_input,
+            include_features_in_path=include_features_in_path,
+            include_features_in_input=include_features_in_input,
             include_embedding_in_input=include_embedding_in_input,
             reduced_embeddings=reduced_embeddings,
         )

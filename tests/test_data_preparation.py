@@ -567,7 +567,7 @@ def test_obtain_feature_columns_string_not_in(test_df_with_datetime, emb):
     with pytest.raises(
         ValueError,
         match=re.escape(
-            f"{incorrect_name} must be in `self.feature_list`: {obj._feature_list},"
+            f"{incorrect_name} must be in `self.feature_list`: {obj._feature_list}, "
             "or a column in `self.df`."
         ),
     ):
@@ -586,7 +586,7 @@ def test_obtain_feature_columns_list_not_in(test_df_with_datetime, emb):
     with pytest.raises(
         ValueError,
         match=re.escape(
-            f"{incorrect_name} must be in `self.feature_list`: {obj._feature_list},"
+            f"{incorrect_name} must be in `self.feature_list`: {obj._feature_list}, "
             "or a column in `self.df`."
         ),
     ):

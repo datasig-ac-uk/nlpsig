@@ -377,7 +377,7 @@ class PrepareData:
                 for item in features:
                     if not self._check_feature_exists(feature=item):
                         raise ValueError(
-                            f"{item} must be in `self.feature_list`: {self._feature_list},"
+                            f"{item} must be in `self.feature_list`: {self._feature_list}, "
                             "or a column in `self.df`."
                         )
             else:

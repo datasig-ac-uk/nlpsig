@@ -28,11 +28,7 @@ def test_default_initialisation_datetime(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        1
-        + len(obj.original_df.columns)
-        + emb.shape[1]
-        + len(obj._feature_list)
-        + 1,
+        1 + len(obj.original_df.columns) + emb.shape[1] + len(obj._feature_list) + 1,
     )
     assert obj.pooled_embeddings is None
     assert set(obj._feature_list) == {
@@ -67,10 +63,7 @@ def test_default_initialisation_no_time(
     # 1 dummy id column
     assert obj.df.shape == (
         len(obj.original_df.index),
-        len(obj.original_df.columns)
-        + emb.shape[1]
-        + len(obj._feature_list)
-        + 1,
+        len(obj.original_df.columns) + emb.shape[1] + len(obj._feature_list) + 1,
     )
     assert obj.pooled_embeddings is None
     assert obj._feature_list == ["timeline_index"]
@@ -105,10 +98,7 @@ def test_initialisation_with_id_and_label_datetime(
     # 3 time features
     assert obj.df.shape == (
         len(obj.original_df.index),
-        1
-        + len(obj.original_df.columns)
-        + emb.shape[1]
-        + len(obj._feature_list),
+        1 + len(obj.original_df.columns) + emb.shape[1] + len(obj._feature_list),
     )
     assert obj.pooled_embeddings is None
     assert set(obj._feature_list) == {
@@ -516,7 +506,10 @@ def test_obtain_colnames_both(test_df_with_datetime, emb, emb_reduced):
     )
     assert obj._obtain_embedding_colnames(embeddings="full") == emb_names
     assert obj._obtain_embedding_colnames(embeddings="dim_reduced") == emb_reduced_names
-    assert obj._obtain_embedding_colnames(embeddings="both") == emb_reduced_names + emb_names
+    assert (
+        obj._obtain_embedding_colnames(embeddings="both")
+        == emb_reduced_names + emb_names
+    )
 
 
 def test_obtain_feature_columns_string(test_df_with_datetime, emb):
@@ -548,9 +541,11 @@ def test_obtain_feature_columns_string_additional_binary(test_df_with_datetime, 
         "timeline_index",
         "binary_var",
     }
-    
 
-def test_obtain_feature_columns_string_additional_continuous(test_df_with_datetime, emb):
+
+def test_obtain_feature_columns_string_additional_continuous(
+    test_df_with_datetime, emb
+):
     # default initialisation
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     # originally only have the time features
@@ -592,7 +587,9 @@ def test_obtain_feature_columns_list_additional(test_df_with_datetime, emb):
         "time_diff",
         "timeline_index",
     }
-    assert obj._obtain_feature_columns(["time_encoding", "timeline_index", "binary_var", "continuous_var"]) == [
+    assert obj._obtain_feature_columns(
+        ["time_encoding", "timeline_index", "binary_var", "continuous_var"]
+    ) == [
         "time_encoding",
         "timeline_index",
         "binary_var",
@@ -734,6 +731,7 @@ def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
     incorrect_method = "fake_method"
     with pytest.raises(
-        ValueError, match=re.escape(f"`method`: {incorrect_method} must be in {implemented}.")
+        ValueError,
+        match=re.escape(f"`method`: {incorrect_method} must be in {implemented}."),
     ):
         obj._standardise_pd(vec=vec_to_standardise, method=incorrect_method)

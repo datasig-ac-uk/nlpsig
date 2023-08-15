@@ -328,9 +328,9 @@ class PrepareData:
             # not in ._feature_list, but is a valid column name in self.df,
             # so add to feature list
             self._feature_list += [feature]
-            
+
         return feature in self._feature_list
-    
+
     def _obtain_feature_columns(
         self,
         features: list[str] | str | None,
@@ -369,8 +369,8 @@ class PrepareData:
             # convert to list of strings
             if isinstance(features, str):
                 features = [features]
-            
-            if isinstance(features, list):    
+
+            if isinstance(features, list):
                 # check each item in features is in self._feature_list
                 # if it isn't, but is a column in self.df, it will add
                 # it to self._feature_list
@@ -777,9 +777,7 @@ class PrepareData:
             raise ValueError("`method` must be either 'k_last' or 'max'.")
 
         # obtain feature colnames
-        feature_colnames = self._obtain_feature_columns(
-            features=features
-        )
+        feature_colnames = self._obtain_feature_columns(features=features)
         if len(feature_colnames) > 0:
             if isinstance(standardise_method, str):
                 standardise_method = [standardise_method] * len(feature_colnames)
@@ -881,9 +879,7 @@ class PrepareData:
             (can be found in `._feature_list` attribute).
         """
         if time_feature not in self._feature_list:
-            raise ValueError(
-                f"`time_feature` should be in {self._feature_list}."
-            )
+            raise ValueError(f"`time_feature` should be in {self._feature_list}.")
 
         if not self.time_features_added:
             self.set_time_features()

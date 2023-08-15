@@ -1250,7 +1250,7 @@ def test_pad_by_id_k_last_additional(test_df_with_datetime, emb):
     assert type(obj.array_padded) == np.ndarray
     assert np.array_equal(padded_array, obj.array_padded)
     assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
-    
+
 
 def test_pad_by_id_max(test_df_with_datetime, emb):
     obj = PrepareData(
@@ -1278,7 +1278,7 @@ def test_pad_by_id_max(test_df_with_datetime, emb):
     assert type(obj.array_padded) == np.ndarray
     assert np.array_equal(padded_array, obj.array_padded)
     assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
-    
+
 
 def test_pad_by_id_max_additional(test_df_with_datetime, emb):
     obj = PrepareData(

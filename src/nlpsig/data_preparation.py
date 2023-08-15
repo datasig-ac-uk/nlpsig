@@ -49,7 +49,10 @@ class PrepareData:
         pooled_embeddings: np.array | None = None,
         id_column: str | None = None,
         label_column: str | None = None,
+        verbose: bool = True,
     ):
+        self.verbose = verbose
+
         # perform checks that original_df have the right column names to work with
         if embeddings.ndim != 2:
             raise ValueError("`embeddings` should be a 2-dimensional array.")
@@ -79,6 +82,7 @@ class PrepareData:
         # obtain modelling dataframe
         self.df: pd.DataFrame | None = None
         self.df = self._get_modeling_dataframe()
+
         # set pooled embeddings if provided
         if pooled_embeddings is not None:
             if pooled_embeddings.ndim != 2:
@@ -86,10 +90,11 @@ class PrepareData:
                     "If provided, `pooled_embeddings` should be a 2-dimensional array."
                 )
             if len(self.df[self.id_column].unique()) != pooled_embeddings.shape[0]:
-                print(
-                    f"[INFO] `len(self.df[self.id_column].unique())`={len(self.df[self.id_column].unique())}"
-                    f" and `pooled_embeddings.shape[0]`={pooled_embeddings.shape[0]}."
-                )
+                if self.verbose:
+                    print(
+                        f"[INFO] `len(self.df[self.id_column].unique())`={len(self.df[self.id_column].unique())}"
+                        f" and `pooled_embeddings.shape[0]`={pooled_embeddings.shape[0]}."
+                    )
                 raise ValueError(
                     "If provided, `pooled_embeddings` should have the same number "
                     "of rows as there are different ids in the id-column."
@@ -123,17 +128,21 @@ class PrepareData:
         if self.df is not None:
             return self.df
 
-        print("[INFO] Concatenating the embeddings to the dataframe...")
-        print("[INFO] - columns beginning with 'e' denote the full embddings.")
+        if self.verbose:
+            print("[INFO] Concatenating the embeddings to the dataframe...")
+            print("[INFO] - columns beginning with 'e' denote the full embddings.")
+
         embedding_df = pd.DataFrame(
             self.embeddings,
             columns=[f"e{i+1}" for i in range(self.embeddings.shape[1])],
         )
 
         if self.embeddings_reduced is not None:
-            print(
-                "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
-            )
+            if self.verbose:
+                print(
+                    "[INFO] - columns beginning with 'd' denote the dimension reduced embeddings."
+                )
+
             embeddings_reduced_df = pd.DataFrame(
                 self.embeddings_reduced,
                 columns=[f"d{i+1}" for i in range(self.embeddings_reduced.shape[1])],
@@ -151,17 +160,21 @@ class PrepareData:
                 [self.original_df.reset_index(drop=True), embedding_df],
                 axis=1,
             )
+
         if self.id_column is None:
             self.id_column = "dummy_id"
-            print(
-                f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
-            )
+            if self.verbose:
+                print(
+                    f"[INFO] No id_column was passed, so setting id_column to '{self.id_column}'."
+                )
+
         if self.id_column not in self.original_df.columns:
+            if self.verbose:
+                print(
+                    f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
+                    f"Adding a new column named '{self.id_column}' of zeros."
+                )
             # set default value to id_column
-            print(
-                f"[INFO] There is no column in `.original_df` called '{self.id_column}'. "
-                f"Adding a new column named '{self.id_column}' of zeros."
-            )
             df[self.id_column] = 0
 
         return df
@@ -203,9 +216,13 @@ class PrepareData:
             Updated dataframe with time features.
         """
         if self.time_features_added:
-            print("Time features have already been added.")
+            if self.verbose:
+                print("Time features have already been added.")
             return None
-        print("[INFO] Adding time feature columns into dataframe in `.df`.")
+
+        if self.verbose:
+            print("[INFO] Adding time feature columns into dataframe in `.df`.")
+
         if "datetime" in self.df.columns:
             self._feature_list += ["time_encoding", "time_diff"]
 
@@ -213,7 +230,9 @@ class PrepareData:
             self.df["datetime"] = pd.to_datetime(self.df["datetime"])
 
             # obtain time encoding by computing the fraction of year it is in
-            print("[INFO] Adding 'time_encoding' feature...")
+            if self.verbose:
+                print("[INFO] Adding 'time_encoding' feature...")
+
             self.df["time_encoding"] = self.df["datetime"].map(
                 lambda t: self._time_fraction(t)
             )
@@ -224,7 +243,9 @@ class PrepareData:
             self.df = self.df.sort_values(by=[self.id_column, "datetime"])
 
             # calculate time difference between posts
-            print("[INFO] Adding 'time_diff' feature...")
+            if self.verbose:
+                print("[INFO] Adding 'time_diff' feature...")
+
             self.df["time_diff"] = list(
                 self.df.groupby(self.id_column)
                 .apply(
@@ -240,18 +261,22 @@ class PrepareData:
                 .explode()
             )
         else:
-            print(
-                "[INFO] Note 'datetime' is not a column in `.df`, "
-                "so only 'timeline_index' is added."
-            )
-            print(
-                "[INFO] As 'datetime' is not a column in `.df`, "
-                "we assume that the data is ordered by time with respect to the id."
-            )
+            if self.verbose:
+                print(
+                    "[INFO] Note 'datetime' is not a column in `.df`, "
+                    "so only 'timeline_index' is added."
+                )
+                print(
+                    "[INFO] As 'datetime' is not a column in `.df`, "
+                    "we assume that the data is ordered by time with respect to the id."
+                )
+
         # assign index for each post in each timeline
         self._feature_list += ["timeline_index"]
 
-        print("[INFO] Adding 'timeline_index' feature...")
+        if self.verbose:
+            print("[INFO] Adding 'timeline_index' feature...")
+
         self.df["timeline_index"] = list(
             self.df.groupby(self.id_column)
             .apply(lambda x: list(range(1, len(x) + 1)))
@@ -756,9 +781,11 @@ class PrepareData:
                   dimension reduced embeddings, time features)
 
         """
-        print(
-            "[INFO] Padding ids and storing in `.df_padded` and `.array_padded` attributes."
-        )
+        if self.verbose:
+            print(
+                "[INFO] Padding ids and storing in `.df_padded` and `.array_padded` attributes."
+            )
+
         if pad_by not in ["id", "history"]:
             raise ValueError("`pad_by` must be either 'id' or 'history'.")
 
@@ -1017,11 +1044,13 @@ class PrepareData:
         if include_embedding_in_input:
             # repeat the embeddings which will be concatenated to the path later
             if self.pad_method == "id":
-                print(
-                    f"[INFO] The path was created for each {self.id_column} in the dataframe, "
-                    "so to include embeddings in the FFN input, we concatenate the "
-                    "pooled embeddings."
-                )
+                if self.verbose:
+                    print(
+                        f"[INFO] The path was created for each {self.id_column} in the dataframe, "
+                        "so to include embeddings in the FFN input, we concatenate the "
+                        "pooled embeddings."
+                    )
+
                 if self.pooled_embeddings is None:
                     raise ValueError(
                         "There were no pooled embeddings passed into the class."
@@ -1035,11 +1064,13 @@ class PrepareData:
                     )
                 emb = torch.from_numpy(self.pooled_embeddings.astype("float")).float()
             elif self.pad_method == "history":
-                print(
-                    "[INFO] The path was created for each item in the dataframe, "
-                    "by looking at its history, so to include embeddings in the FFN input, "
-                    "we concatenate the embeddings for each sentence / text."
-                )
+                if self.verbose:
+                    print(
+                        "[INFO] The path was created for each item in the dataframe, "
+                        "by looking at its history, so to include embeddings in the FFN input, "
+                        "we concatenate the embeddings for each sentence / text."
+                    )
+
                 if reduced_embeddings:
                     if self.embeddings_reduced is None:
                         raise ValueError(
@@ -1148,10 +1179,11 @@ class PrepareData:
         required_history_length = shift * n + (window_size - shift)
         if self.array_padded.shape[1] != required_history_length:
             # required history length not met
-            print(
-                f"A history length of size {required_history_length} is required, "
-                f"but we have history length size of {self.array_padded.shape[1]}"
-            )
+            if self.verbose:
+                print(
+                    f"A history length of size {required_history_length} is required, "
+                    f"but we have history length size of {self.array_padded.shape[1]}"
+                )
             return False
 
         # we have the required history length

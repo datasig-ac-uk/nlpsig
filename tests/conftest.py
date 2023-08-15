@@ -29,6 +29,8 @@ def test_df_with_datetime():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
+            "binary_var": [rng.choice([0,1]) for i in range(n_entries)],
+            "continuous_var": rng.random(n_entries),
             "id_col": [0 for i in range(100)]
             + [rng.integers(1, 5) for i in range(n_entries - 100)],
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
@@ -43,6 +45,8 @@ def test_df_no_time():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
+            "binary_var": [rng.choice([0,1]) for i in range(n_entries)],
+            "continuous_var": rng.random(n_entries),
             "id_col": [0 for i in range(100)]
             + [rng.integers(1, 5) for i in range(n_entries - 100)],
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
@@ -56,6 +60,8 @@ def test_df_to_pad():
     return pd.DataFrame(
         {
             "text": [f"text_{i}" for i in range(n_entries)],
+            "binary_var": [rng.choice([0,1]) for i in range(n_entries)],
+            "continuous_var": rng.random(n_entries),
             "id_col": 0,
             "label_col": [rng.integers(0, 4) for i in range(n_entries)],
         }

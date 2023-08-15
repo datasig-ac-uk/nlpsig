@@ -1193,9 +1193,9 @@ def test_pad_history_many_history_include_current(test_df_no_time, emb):
     )
 
 
-def test_pad_by_id_k_last(test_df_no_time, emb):
+def test_pad_by_id_k_last(test_df_with_datetime, emb):
     obj = PrepareData(
-        original_df=test_df_no_time,
+        original_df=test_df_with_datetime,
         embeddings=emb,
         id_column="id_col",
         label_column="label_col",
@@ -1213,8 +1213,8 @@ def test_pad_by_id_k_last(test_df_no_time, emb):
         pad_from_below=True,
     )
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
+    # timeline_index column + number of columns in emb + id col + label col
+    ncol = 1 + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1222,9 +1222,39 @@ def test_pad_by_id_k_last(test_df_no_time, emb):
     assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
 
 
-def test_pad_by_id_max(test_df_no_time, emb):
+def test_pad_by_id_k_last_additional(test_df_with_datetime, emb):
     obj = PrepareData(
-        original_df=test_df_no_time,
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    features = ["timeline_index", "binary_var", "continuous_var"]
+    padded_array = obj.pad(
+        pad_by="id",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        features=features,
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of features requested + number of columns in emb + id col + label col
+    ncol = len(features) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
+    
+
+def test_pad_by_id_max(test_df_with_datetime, emb):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
         embeddings=emb,
         id_column="id_col",
         label_column="label_col",
@@ -1240,8 +1270,37 @@ def test_pad_by_id_max(test_df_no_time, emb):
         pad_from_below=True,
     )
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
+    # timeline_index column + number of columns in emb + id col + label col
+    ncol = 1 + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    k = obj.original_df["id_col"].value_counts().max()
+    assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
+    
+
+def test_pad_by_id_max_additional(test_df_with_datetime, emb):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    features = ["timeline_index", "binary_var", "continuous_var"]
+    padded_array = obj.pad(
+        pad_by="id",
+        method="max",
+        zero_padding=True,
+        features=features,
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of features requested + number of columns in emb + id col + label col
+    ncol = len(features) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     k = obj.original_df["id_col"].value_counts().max()
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
@@ -1250,9 +1309,9 @@ def test_pad_by_id_max(test_df_no_time, emb):
     assert obj.array_padded.shape == (len(obj.original_df["id_col"].unique()), k, ncol)
 
 
-def test_pad_by_history_k_last(test_df_no_time, emb):
+def test_pad_by_history_k_last(test_df_with_datetime, emb):
     obj = PrepareData(
-        original_df=test_df_no_time,
+        original_df=test_df_with_datetime,
         embeddings=emb,
         id_column="id_col",
         label_column="label_col",
@@ -1270,8 +1329,8 @@ def test_pad_by_history_k_last(test_df_no_time, emb):
         pad_from_below=True,
     )
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
+    # timeline_index column + number of columns in emb + id col + label col
+    ncol = 1 + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
     assert type(obj.array_padded) == np.ndarray
@@ -1279,9 +1338,39 @@ def test_pad_by_history_k_last(test_df_no_time, emb):
     assert obj.array_padded.shape == (len(obj.original_df.index), k, ncol)
 
 
-def test_pad_by_history_max(test_df_no_time, emb):
+def test_pad_by_history_k_last_additional(test_df_with_datetime, emb):
     obj = PrepareData(
-        original_df=test_df_no_time,
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    k = 10
+    features = ["timeline_index", "binary_var", "continuous_var"]
+    padded_array = obj.pad(
+        pad_by="history",
+        method="k_last",
+        zero_padding=True,
+        k=k,
+        features=features,
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of features requested + number of columns in emb + id col + label col
+    ncol = len(features) + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df.index), k, ncol)
+
+
+def test_pad_by_history_max(test_df_with_datetime, emb):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
         embeddings=emb,
         id_column="id_col",
         label_column="label_col",
@@ -1297,8 +1386,37 @@ def test_pad_by_history_max(test_df_no_time, emb):
         pad_from_below=True,
     )
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
-    ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
+    # timeline_index column + number of columns in emb + id col + label col
+    ncol = 1 + emb.shape[1] + 1 + 1
+    assert type(obj.df_padded) == pd.DataFrame
+    k = obj.original_df["id_col"].value_counts().max()
+    assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
+    assert type(obj.array_padded) == np.ndarray
+    assert np.array_equal(padded_array, obj.array_padded)
+    assert obj.array_padded.shape == (len(obj.original_df.index), k, ncol)
+
+
+def test_pad_by_history_max_additional(test_df_with_datetime, emb):
+    obj = PrepareData(
+        original_df=test_df_with_datetime,
+        embeddings=emb,
+        id_column="id_col",
+        label_column="label_col",
+    )
+    features = ["timeline_index", "binary_var", "continuous_var"]
+    padded_array = obj.pad(
+        pad_by="history",
+        method="max",
+        zero_padding=True,
+        features=features,
+        standardise_method=None,
+        embeddings="full",
+        include_current_embedding=True,
+        pad_from_below=True,
+    )
+    # number of columns is:
+    # number of features requested + number of columns in emb + id col + label col
+    ncol = len(features) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     k = obj.original_df["id_col"].value_counts().max()
     assert obj.df_padded.shape == (k * len(obj.original_df.index), ncol)
@@ -1361,17 +1479,17 @@ def test_pad_by_id_k_last_standardise_standardise(test_df_no_time, emb):
         zero_padding=True,
         k=k,
         features="timeline_index",
-        standardise_method="standardise",
+        standardise_method="z_score",
         embeddings="full",
         include_current_embedding=True,
         pad_from_below=True,
     )
     standardise_vec = obj._standardise_pd(
-        vec=obj.df["timeline_index"], method="standardise"
+        vec=obj.df["timeline_index"], method="z_score"
     )["standardised_pd"]
     pd.testing.assert_series_equal(obj.df["timeline_index"], standardise_vec)
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
+    # number of features + number of columns in emb + id col + label col
     ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
@@ -1394,17 +1512,17 @@ def test_pad_by_id_k_last_standardise_normalise(test_df_no_time, emb):
         zero_padding=True,
         k=k,
         features="timeline_index",
-        standardise_method="normalise",
+        standardise_method="sum_divide",
         embeddings="full",
         include_current_embedding=True,
         pad_from_below=True,
     )
     normalise_vec = obj._standardise_pd(
-        vec=obj.df["timeline_index"], method="normalise"
+        vec=obj.df["timeline_index"], method="sum_divide"
     )["standardised_pd"]
     pd.testing.assert_series_equal(obj.df["timeline_index"], normalise_vec)
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
+    # number of features + number of columns in emb + id col + label col
     ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
@@ -1437,7 +1555,7 @@ def test_pad_by_id_k_last_standardise_minmax(test_df_no_time, emb):
     ]
     pd.testing.assert_series_equal(obj.df["timeline_index"], minmax_vec)
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
+    # number of features + number of columns in emb + id col + label col
     ncol = len(obj._feature_list) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
@@ -1454,13 +1572,13 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
         label_column="label_col",
     )
     k = 10
-    featuress = ["timeline_index", "time_encoding", "time_diff"]
+    features = ["timeline_index", "time_encoding", "time_diff"]
     # expected standardised vectors
     standardised_vec = obj._standardise_pd(
-        vec=obj.df["timeline_index"], method="standardise"
+        vec=obj.df["timeline_index"], method="z_score"
     )["standardised_pd"]
     normalised_vec = obj._standardise_pd(
-        vec=obj.df["time_encoding"], method="normalise"
+        vec=obj.df["time_encoding"], method="sum_divide"
     )["standardised_pd"]
     none_standardisation_vec = obj.df["time_diff"]
     # pad and perform standardisation
@@ -1469,8 +1587,8 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
         method="k_last",
         zero_padding=True,
         k=k,
-        features=featuress,
-        standardise_method=["standardise", "normalise", None],
+        features=features,
+        standardise_method=["z_score", "sum_divide", None],
         embeddings="full",
         include_current_embedding=True,
         pad_from_below=True,
@@ -1479,8 +1597,8 @@ def test_pad_by_id_k_last_standardise_multiple(test_df_with_datetime, emb):
     pd.testing.assert_series_equal(obj.df["time_encoding"], normalised_vec)
     pd.testing.assert_series_equal(obj.df["time_diff"], none_standardisation_vec)
     # number of columns is:
-    # number of time features + number of columns in emb + id col + label col
-    ncol = len(featuress) + emb.shape[1] + 1 + 1
+    # number of features + number of columns in emb + id col + label col
+    ncol = len(features) + emb.shape[1] + 1 + 1
     assert type(obj.df_padded) == pd.DataFrame
     assert obj.df_padded.shape == (k * len(obj.original_df["id_col"].unique()), ncol)
     assert type(obj.array_padded) == np.ndarray

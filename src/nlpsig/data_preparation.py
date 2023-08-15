@@ -639,18 +639,18 @@ class PrepareData:
         vec: pd.Series, method: str | None
     ) -> dict[str, pd.Series | Callable]:
         # standardised pandas series
-        implemented = ["standardise", "normalise", "minmax", None]
+        implemented = ["z_score", "sum_divide", "minmax", None]
         if method not in implemented:
-            raise ValueError(f"`method` must be in {implemented}.")
+            raise ValueError(f"`method`: {method} must be in {implemented}.")
 
-        if method == "standardise":
+        if method == "z_score":
             mean = vec.mean()
             std = vec.std()
 
             def transform(x):
                 return (x - mean) / std
 
-        elif method == "normalise":
+        elif method == "sum_divide":
             sum = vec.sum()
 
             def transform(x):
@@ -722,11 +722,14 @@ class PrepareData:
             The requested length of the path, default 5. This is ignored if `method="max"`.
         features : list[str] | str | None, optional
             Which feature(s) to keep. If None, then doesn't keep any.
-        standardise_method : str | None, optional
-            If not None, applies standardisation to the features, default None. Options:
+        standardise_method : list[str] | str | None, optional
+            If not None, applies standardisation to the features, default None.
+            If a list is passed, must be the same length as `features`. Options:
 
-            - "standardise": transforms by subtracting the mean and dividing by standard deviation
-            - "normalise": transforms by dividing by the sum
+            - "z_score": transforms by subtracting the mean and dividing by standard deviation
+            - "sum_divide": transforms by dividing by the sum
+            - "minmax": transform by return (x-min(x)) / (max(x)-min(x)) where x
+              is the vector to standardise
 
         embeddings : str, optional
             Which embeddings to keep, by default "full". Options:
@@ -847,7 +850,7 @@ class PrepareData:
     def get_time_feature(
         self,
         time_feature: str = "timeline_index",
-        standardise_method: str = "standardise",
+        standardise_method: str = "z_score",
     ) -> dict[str, np.array | Callable | None]:
         """
         Returns a `np.array` object of the time_feature that is requested
@@ -859,8 +862,10 @@ class PrepareData:
             Which time feature to obtain `np.array` for, by default "timeline_index".
         standardise_method : str | None, optional
             If not None, applies standardisation to the time features, default None. Options:
-            - "standardise": transforms by subtracting the mean and dividing by standard deviation
-            - "normalise": transforms by dividing by the sum
+            - "z_score": transforms by subtracting the mean and dividing by standard deviation
+            - "sum_divide": transforms by dividing by the sum
+            - "minmax": transform by return (x-min(x)) / (max(x)-min(x)) where x
+              is the vector to standardise
 
         Returns
         -------

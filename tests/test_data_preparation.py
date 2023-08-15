@@ -530,6 +530,46 @@ def test_obtain_feature_columns_string(test_df_with_datetime, emb):
     assert obj._obtain_feature_columns("timeline_index") == ["timeline_index"]
 
 
+def test_obtain_feature_columns_string_additional_binary(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    # originally only have the time features
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    # pass in string of column name that isn't in _feature_list but
+    # is a column in self.df
+    assert obj._obtain_feature_columns("binary_var") == ["binary_var"]
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+        "binary_var",
+    }
+    
+
+def test_obtain_feature_columns_string_additional_continuous(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    # originally only have the time features
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    # pass in string of column name that isn't in _feature_list but
+    # is a column in self.df
+    assert obj._obtain_feature_columns("continuous_var") == ["continuous_var"]
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+        "continuous_var",
+    }
+
+
 def test_obtain_feature_columns_list(test_df_with_datetime, emb):
     # default initialisation
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
@@ -542,6 +582,30 @@ def test_obtain_feature_columns_list(test_df_with_datetime, emb):
         "time_encoding",
         "timeline_index",
     ]
+
+
+def test_obtain_feature_columns_list_additional(test_df_with_datetime, emb):
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+    }
+    assert obj._obtain_feature_columns(["time_encoding", "timeline_index", "binary_var", "continuous_var"]) == [
+        "time_encoding",
+        "timeline_index",
+        "binary_var",
+        "continuous_var",
+    ]
+    # check that it has added binary_var and continuous_var to ._feature_list
+    assert set(obj._feature_list) == {
+        "time_encoding",
+        "time_diff",
+        "timeline_index",
+        "binary_var",
+        "continuous_var",
+    }
 
 
 def test_obtain_feature_columns_none(test_df_with_datetime, emb):
@@ -608,10 +672,10 @@ def test_obtain_feature_columns_type(test_df_with_datetime, emb):
         obj._obtain_feature_columns(0)
 
 
-def test_standardise_pd_standardise(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="standardise"
+def test_standardise_pd_z_score(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method=="z_score"
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
-    standardise = obj._standardise_pd(vec=vec_to_standardise, method="standardise")
+    standardise = obj._standardise_pd(vec=vec_to_standardise, method="z_score")
     assert type(standardise) == dict
     assert type(standardise["standardised_pd"]) == pd.Series
     pd.testing.assert_series_equal(
@@ -622,10 +686,10 @@ def test_standardise_pd_standardise(vec_to_standardise, test_df_no_time, emb):
     )
 
 
-def test_standardise_pd_normalise(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="normalise"
+def test_standardise_pd_sum_divide(vec_to_standardise, test_df_no_time, emb):
+    # testing _standardise_pd with method=="sum_divide"
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
-    standardise = obj._standardise_pd(vec=vec_to_standardise, method="normalise")
+    standardise = obj._standardise_pd(vec=vec_to_standardise, method="sum_divide")
     assert type(standardise) == dict
     assert type(standardise["standardised_pd"]) == pd.Series
     pd.testing.assert_series_equal(
@@ -637,7 +701,7 @@ def test_standardise_pd_normalise(vec_to_standardise, test_df_no_time, emb):
 
 
 def test_standardise_pd_minmax(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="normalise"
+    # testing _standardise_pd with method=="sum_divide"
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
     standardise = obj._standardise_pd(vec=vec_to_standardise, method="minmax")
     assert type(standardise) == dict
@@ -652,7 +716,7 @@ def test_standardise_pd_minmax(vec_to_standardise, test_df_no_time, emb):
 
 
 def test_standardise_pd_None(vec_to_standardise, test_df_no_time, emb):
-    # testing _standardise_pd with method=="normalise"
+    # testing _standardise_pd with method=="sum_divide"
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
     standardise = obj._standardise_pd(vec=vec_to_standardise, method=None)
     assert type(standardise) == dict
@@ -666,9 +730,10 @@ def test_standardise_pd_None(vec_to_standardise, test_df_no_time, emb):
 
 def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
     # testing _standardise_pd with method that isn't implemented
-    implemented = ["standardise", "normalise", "minmax", None]
+    implemented = ["z_score", "sum_divide", "minmax", None]
     obj = PrepareData(original_df=test_df_no_time, embeddings=emb)
+    incorrect_method = "fake_method"
     with pytest.raises(
-        ValueError, match=re.escape(f"`method` must be in {implemented}.")
+        ValueError, match=re.escape(f"`method`: {incorrect_method} must be in {implemented}.")
     ):
-        obj._standardise_pd(vec=vec_to_standardise, method="fake_method")
+        obj._standardise_pd(vec=vec_to_standardise, method=incorrect_method)

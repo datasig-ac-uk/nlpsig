@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pickle
+import warnings
 from typing import Callable, Iterable
 
 import numpy as np
@@ -93,10 +94,13 @@ class SentenceEncoder:
         model_modules: Iterable[nn.Module] | None = None,
         model_encoder_args: dict | None = None,
         model_fit_args: dict | None = None,
+        verbose: bool = True,
     ):
+        self.verbose = verbose
+
         self.df = df
         if feature_name not in df.columns:
-            raise KeyError(f"{feature_name} is not a column in df")
+            raise KeyError(f"{feature_name} is not a column in df.")
         self.feature_name = feature_name
         self.sentence_embeddings = None
         self.model_name = model_name
@@ -142,7 +146,7 @@ class SentenceEncoder:
                 raise ValueError(
                     f"the loaded embeddings from {pre_computed_embeddings_file} "
                     "must be a (n x d) array where n is the number of sentences "
-                    "and d is the dimension of the embeddings"
+                    "and d is the dimension of the embeddings."
                 )
         self.model_name = "pre-computed"
         self.model_modules = None
@@ -170,14 +174,15 @@ class SentenceEncoder:
             See https://www.sbert.net/docs/pretrained_models.html for examples.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] '{self.model_name}' model is already loaded")
+            warnings.warn(f"'{self.model_name}' model is already loaded.", stacklevel=3)
             return
+
         if (force_reload) and (self.model == "pre-computed"):
-            print(
-                "[INFO] The current embeddings were computed before "
-                "and were loaded into this class"
+            warnings.warn(
+                "The current embeddings were pre-computed and loaded.", stacklevel=3
             )
             return
+
         try:
             self.model = SentenceTransformer(model_name_or_path=self.model_name)
         except Exception as err:
@@ -208,18 +213,20 @@ class SentenceEncoder:
             for examples.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] '{self.model_name}' model is already loaded")
+            warnings.warn(f"'{self.model_name}' model is already loaded.", stacklevel=3)
             return
+
         if (force_reload) and (self.model == "pre-computed"):
-            print(
-                "[INFO] The current embeddings were computed before "
-                "and were loaded into this class"
+            warnings.warn(
+                "The current embeddings were pre-computed and loaded.", stacklevel=3
             )
             return
+
         if self.model_modules is None:
             raise ValueError(
                 "`.model_modules` must be a list of modules which define the network architecture."
             )
+
         try:
             self.model = SentenceTransformer(modules=self.model_modules)
         except Exception as err:
@@ -250,10 +257,14 @@ class SentenceEncoder:
                 "or `.load_custom_model()` methods first"
             )
         sentences = self.df[self.feature_name].to_list()
-        print(f"[INFO] number of sentences to encode: {len(sentences)}")
+
+        if self.verbose:
+            print(f"[INFO] number of sentences to encode: {len(sentences)}")
+
         self.sentence_embeddings = np.array(
             self.model.encode(sentences, **self.model_encoder_args)
         )
+
         return self.sentence_embeddings
 
     def fit_transformer(
@@ -327,7 +338,10 @@ class TextEncoder:
         config: PretrainedConfig | None = None,
         tokenizer: PreTrainedTokenizer | None = None,
         data_collator: DataCollator | None = None,
+        verbose: bool = True,
     ):
+        self.verbose = verbose
+
         # check feature name is a string or list of length 1 or 2 of strings
         if isinstance(feature_name, str):
             # convert to list of one element
@@ -405,19 +419,23 @@ class TextEncoder:
             Whether or not to overwrite current loaded model, by default False.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] '{self.model_name}' model is already loaded.")
+            warnings.warn(f"'{self.model_name}' model is already loaded.", stacklevel=3)
             return
+
         if self.model_name is None:
             raise TypeError("")
+
+        if self.verbose:
+            print(
+                "[INFO] By default, `.load_pretrained_model()` uses "
+                "`AutoModel` to load in the model. "
+                "If you want to load the model for a specific task, "
+                "reset the `.model` attribute."
+            )
+
         self.config = AutoConfig.from_pretrained(self.model_name)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.data_collator = DataCollatorWithPadding(self.tokenizer)
-        Warning(
-            "[INFO] By default, `.load_pretrained_model()` uses "
-            "`AutoModel` to load in the model. "
-            "If you want to load the model for a specific task, "
-            "reset the `.model` attribute."
-        )
         self.model = AutoModel.from_pretrained(self.model_name)
         self.model.eval()
 
@@ -434,10 +452,12 @@ class TextEncoder:
             Passed along to `AutoConfig.from_pretrained()` method.
         """
         if (not force_reload) and (self.model is not None):
-            print(f"[INFO] '{self.model_name}' model is already loaded.")
+            warnings.warn(f"'{self.model_name}' model is already loaded.", stacklevel=3)
             return
+
         if self.model_name is None:
             raise TypeError("")
+
         self.config = AutoConfig.from_pretrained(self.model_name, **config_args)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
         self.data_collator = DataCollatorWithPadding(self.tokenizer)
@@ -533,8 +553,11 @@ class TextEncoder:
             # by default does not perform padding initially,
             # as will utilise dynamic padding later on
             tokenizer_args = {"padding": False, "truncation": True}
+
         if not tokenizer_args.get("return_special_tokens_mask"):
-            print("[INFO] Setting return_special_tokens_mask=True")
+            if self.verbose:
+                print("[INFO] Setting return_special_tokens_mask=True")
+
             tokenizer_args["return_special_tokens_mask"] = True
 
         # define tokenize_function for mapping to Dataset object
@@ -556,7 +579,9 @@ class TextEncoder:
                 )
 
         # tokenize the dataset and save the tokens in .tokens attribute
-        print("[INFO] Tokenizing the dataset...")
+        if self.verbose:
+            print("[INFO] Tokenizing the dataset...")
+
         self.dataset = self.dataset.map(
             tokenize_function,
             batched=batched,
@@ -565,9 +590,10 @@ class TextEncoder:
         self.tokens = self.dataset.remove_columns(self._features)
 
         # save the tokenized text to `.df["tokens"] (does not include special tokens)
-        print(
-            "[INFO] Saving the tokenized text for each sentence into `.df['tokens']`..."
-        )
+        if self.verbose:
+            print(
+                "[INFO] Saving the tokenized text for each sentence into `.df['tokens']`..."
+            )
 
         cls_token_avail = self.tokenizer.cls_token is not None
 
@@ -593,6 +619,7 @@ class TextEncoder:
                 )
             return {"tokens": tokens}
 
+        # token apply tokenize_decoder to dataset to obtain tokens
         self.dataset = self.dataset.map(
             tokenize_decoder,
             batched=batched,
@@ -601,18 +628,23 @@ class TextEncoder:
         self.df["tokens"] = self.dataset["tokens"]
 
         # create new tokenized dataframe
-        print(
-            "[INFO] Creating tokenized dataframe and setting in `.tokenized_df` attribute..."
-        )
+        if self.verbose:
+            print(
+                "[INFO] Creating tokenized dataframe and setting in `.tokenized_df` attribute..."
+            )
+
         self.tokenized_df = self.df.drop(
             columns=self.feature_name,
             errors="ignore",
         ).explode("tokens")
         self.tokenized_df = self.tokenized_df.reset_index()
-        print(
-            f"[INFO] Note: '{text_id_col_name}' is the "
-            "column name for denoting the corresponding text id"
-        )
+
+        if self.verbose:
+            print(
+                f"[INFO] Note: '{text_id_col_name}' is the "
+                "column name for denoting the corresponding text id"
+            )
+
         self.tokenized_df = self.tokenized_df.rename(
             columns={"index": text_id_col_name}
         )
@@ -1081,9 +1113,10 @@ class TextEncoder:
             (if `valid_size` is not None), and test (`test`) Datasets.
         """
         if self.dataset_split is not None:
-            print(
-                "[INFO] Dataset has already been split. "
-                "If required to split again, first set `.dataset_split` attribute to None"
+            warnings.warn(
+                "Dataset has already been split. If required to split again, first set "
+                "`.dataset_split` attribute to None",
+                stacklevel=3,
             )
             return self.dataset_split
 
@@ -1106,16 +1139,17 @@ class TextEncoder:
             )
         else:
             # indices are not provided, so split the dataset
-            if valid_size is None:
-                print(
-                    "[INFO] Splitting up dataset into train / test sets, "
-                    "and saving to `.dataset_split`."
-                )
-            else:
-                print(
-                    "[INFO] Splitting up dataset into train / validation / test sets, "
-                    "and saving to `.dataset_split`."
-                )
+            if self.verbose:
+                if valid_size is None:
+                    print(
+                        "[INFO] Splitting up dataset into train / test sets, "
+                        "and saving to `.dataset_split`."
+                    )
+                else:
+                    print(
+                        "[INFO] Splitting up dataset into train / validation / test sets, "
+                        "and saving to `.dataset_split`."
+                    )
 
             # first split data into train/valid set, test set
             train_test = self.dataset.train_test_split(
@@ -1166,9 +1200,11 @@ class TextEncoder:
         TrainingArguments
             `TrainingArguments` object.
         """
-        print(
-            "[INFO] Setting up TrainingArguments object and saving to `.training_args`."
-        )
+        if self.verbose:
+            print(
+                "[INFO] Setting up TrainingArguments object and saving to `.training_args`."
+            )
+
         if kwargs is None:
             kwargs = {}
         if "evaluation_strategy" not in kwargs:
@@ -1209,17 +1245,21 @@ class TextEncoder:
         # check model, tokenizer and data_collator have been passed into the class
         self._check_model()
 
-        print("[INFO] Setting up Trainer object, and saving to `.trainer`.")
+        if self.verbose:
+            print("[INFO] Setting up Trainer object, and saving to `.trainer`.")
+
         if self.training_args is None:
             raise NotImplementedError(
                 "TrainingArgments have not been set in `.training_args`. "
                 "Call `.set_up_training_args()` first."
             )
+
         if self.dataset_split is None:
             raise ValueError(
                 "Dataset has not been split up into train / test (and validation) sets. "
                 "Call `.split_dataset()` first."
             )
+
         if data_collator is None:
             # use the existing data collator
             data_collator = self.data_collator
@@ -1286,6 +1326,13 @@ class TextEncoder:
                 **trainer_args,
             )
 
-        print(f"[INFO] Training model with {self.model.num_parameters()} parameters...")
+        if self.verbose:
+            print(
+                f"[INFO] Training model with {self.model.num_parameters()} parameters..."
+            )
+
+        # train model
         self.trainer.train()
-        print("[INFO] Training completed!")
+
+        if self.verbose:
+            print("[INFO] Training completed!")

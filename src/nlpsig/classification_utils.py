@@ -110,7 +110,6 @@ class DataSplits:
         else:
             if self.groups is not None:
                 # see https://github.com/scikit-learn/scikit-learn/issues/9193
-                print("[INFO] Splitting data by provided groups")
                 self.shuffle = False
 
                 if x_data.shape[0] != len(self.groups):

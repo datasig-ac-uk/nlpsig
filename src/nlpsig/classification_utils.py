@@ -69,6 +69,12 @@ class DataSplits:
                 "(need to have same number of samples)."
             )
             raise ValueError(msg)
+        if groups is not None and x_data.shape[0] != len(groups):
+            msg = (
+                "x_data and groups do not have compatible shapes "
+                "(need to have same number of samples)."
+            )
+            raise ValueError(msg)
         if (train_size < 0) or (train_size > 1):
             msg = "train_size must be between 0 and 1."
             raise ValueError(msg)
@@ -111,14 +117,7 @@ class DataSplits:
         else:
             if self.groups is not None:
                 # see https:/github.com/scikit-learn/scikit-learn/issues/9193
-                self.shuffle = False
-
-                if x_data.shape[0] != len(self.groups):
-                    msg = (
-                        "x_data and groups do not have compatible shapes "
-                        "(need to have same number of samples)."
-                    )
-                    raise ValueError(msg)
+                self.shuffle = True
 
                 # first split data into train set, test/valid set by group
                 gss = GroupShuffleSplit(
@@ -378,7 +377,7 @@ class Folds:
 
             for k in range(self.n_splits):
                 # check that indices[k] is a tuple of length 3
-                msg = "each item in indices must be a tuple of length 3."
+                msg = f"each item in indices must be a tuple of length 3: fold {k} is not."
                 if not isinstance(indices[k], tuple):
                     raise TypeError(msg)
                 if len(indices[k]) != 3:
@@ -443,6 +442,8 @@ class Folds:
 
                 # store indices
                 self.fold_indices[k] = (train_index, valid_index, test_index)
+
+            self.fold_indices = tuple(self.fold_indices)
 
     def get_splits(
         self,

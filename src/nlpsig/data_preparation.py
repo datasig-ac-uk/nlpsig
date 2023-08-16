@@ -875,7 +875,7 @@ class PrepareData:
     def get_time_feature(
         self,
         time_feature: str = "timeline_index",
-        standardise_method: str = "z_score",
+        standardise_method: str | None = None,
     ) -> dict[str, np.array | Callable | None]:
         """
         Returns a `np.array` object of the time_feature that is requested
@@ -906,7 +906,9 @@ class PrepareData:
             (can be found in `._feature_list` attribute).
         """
         if time_feature not in self._feature_list:
-            raise ValueError(f"`time_feature` should be in {self._feature_list}.")
+            raise ValueError(
+                f"`time_feature` '{time_feature}' should be in {self._feature_list}."
+            )
 
         if not self.time_features_added:
             self.set_time_features()
@@ -1034,7 +1036,7 @@ class PrepareData:
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
 
-        # obtains a torch tensor which can be inputted into deepsignet
+        # obtains a torch tensor which can be inputted into SWNUNetwork
         # computes how many features there are currently
         # (which occur in the first n_features columns)
         n_features = len(

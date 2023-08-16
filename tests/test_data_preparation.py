@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 import pytest
 import regex as re
@@ -735,3 +736,61 @@ def test_standardise_pd_wrong_method(vec_to_standardise, test_df_no_time, emb):
         match=re.escape(f"`method`: {incorrect_method} must be in {implemented}."),
     ):
         obj._standardise_pd(vec=vec_to_standardise, method=incorrect_method)
+
+
+def test_get_time_feature(test_df_with_datetime, emb):
+    # test get_time_feature function with default arguments
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    time_feature = obj.get_time_feature()
+
+    # check it returns a dict
+    assert type(time_feature) == dict
+    # time_feature should be an numpy array
+    assert type(time_feature["time_feature"]) == np.ndarray
+    # should just be the timeline_index column
+    np.testing.assert_array_equal(
+        time_feature["time_feature"], np.array(obj.df["timeline_index"])
+    )
+    # no standardisation applied by default
+    assert time_feature["transform"] is None
+
+
+def test_get_time_feature_incorrect_time_feature(test_df_with_datetime, emb):
+    # test get_time_feature function with time_feature that isn't in the feature list
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+
+    incorrect_time_feature = "fake_time_feature"
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f"`time_feature` '{incorrect_time_feature}' should be in {obj._feature_list}."
+        ),
+    ):
+        obj.get_time_feature(time_feature=incorrect_time_feature)
+
+
+def test_get_time_feature_with_standardisation(test_df_with_datetime, emb):
+    # test get_time_feature function with requested standardisation (using z_score)
+    # default initialisation
+    obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
+    time_feature = obj.get_time_feature(
+        time_feature="timeline_index", standardise_method="z_score"
+    )
+    standardised = obj._standardise_pd(vec=obj.df["timeline_index"], method="z_score")
+
+    # check it returns a dict
+    assert type(time_feature) == dict
+    # time_feature should be an numpy array
+    assert type(time_feature["time_feature"]) == np.ndarray
+    # should equal the standardised array using z_score
+    np.testing.assert_equal(
+        time_feature["time_feature"], np.array(standardised["standardised_pd"])
+    )
+    # the transform applied to the time feature should be
+    # the same as the standardised array using z_score
+    np.testing.assert_equal(
+        np.array(time_feature["transform"](obj.df["timeline_index"].values)),
+        np.array(standardised["standardised_pd"]),
+    )

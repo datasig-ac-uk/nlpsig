@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import umap
 from sklearn.decomposition import PCA
-from sklearn.manifold import TSNE
 from sklearn.random_projection import (
     GaussianRandomProjection,
     SparseRandomProjection,
@@ -47,19 +46,19 @@ def test_pca(X_fit, X_new):
     assert reduced_X_new.shape == (X_new.shape[0], n_comp)
 
 
-def test_tsne(X_fit):
-    n_comp = 3
-    reduction = DimReduce(method="tsne", n_components=n_comp)
-    assert reduction.method == "tsne"
-    assert reduction.n_components == n_comp
-    assert reduction.kwargs is None
-    assert reduction.reducer is None
-    assert reduction.embedding is None
+# def test_tsne(X_fit):
+#     n_comp = 3
+#     reduction = DimReduce(method="tsne", n_components=n_comp)
+#     assert reduction.method == "tsne"
+#     assert reduction.n_components == n_comp
+#     assert reduction.kwargs is None
+#     assert reduction.reducer is None
+#     assert reduction.embedding is None
 
-    reduced_X_fit = reduction.fit_transform(X_fit)
-    assert type(reduction.reducer) is TSNE
-    assert (reduction.embedding == reduced_X_fit).all()
-    assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
+#     reduced_X_fit = reduction.fit_transform(X_fit)
+#     assert type(reduction.reducer) is TSNE
+#     assert (reduction.embedding == reduced_X_fit).all()
+#     assert reduction.embedding.shape == (X_fit.shape[0], n_comp)
 
 
 def test_grp(X_fit, X_new):

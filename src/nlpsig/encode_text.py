@@ -1285,11 +1285,12 @@ class TextEncoder:
             # create subclass of Trainer
             class MyTrainer(Trainer):
                 # override custom_loss class
-                def compute_loss(self, model, inputs):
+                def compute_loss(self, model, inputs, return_outputs=False):
                     labels = inputs.pop("labels")
                     outputs = model(**inputs)
                     logits = outputs[0]
-                    return custom_loss(logits, labels)
+                    loss = custom_loss(logits, labels)
+                    return (loss, outputs) if return_outputs else loss
 
             # initialise custom Trainer object
             self.trainer = MyTrainer(

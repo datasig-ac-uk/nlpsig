@@ -22,8 +22,11 @@ class DataSplits:
 
     Parameters
     ----------
-    x_data : np.array | torch.Tensor
-        Features for prediction.
+    x_data : np.array | torch.Tensor | dict[str, np.array | torch.Tensor]
+        Features for prediction. This can be a numpy array or torch tensor
+        of shape (n_samples, n_features), or a dictionary where the keys
+        are the names of the features and the values are numpy arrays or
+        torch tensors of shape (n_samples, n_features).
     y_data : np.array | torch.Tensor
         Variable to predict.
     groups : np.array | torch.Tensor | None, optional
@@ -54,7 +57,7 @@ class DataSplits:
 
     def __init__(
         self,
-        x_data: np.array | torch.Tensor,
+        x_data: np.array | torch.Tensor | dict[str, np.array | torch.Tensor],
         y_data: np.array | torch.Tensor,
         groups: np.array | torch.Tensor | None = None,
         train_size: float = 0.8,
@@ -63,18 +66,28 @@ class DataSplits:
         shuffle: bool = False,
         random_state: int = 42,
     ):
-        if x_data.shape[0] != y_data.shape[0]:
-            msg = (
-                "x_data and y_data do not have compatible shapes "
-                "(need to have same number of samples)."
-            )
-            raise ValueError(msg)
-        if groups is not None and x_data.shape[0] != len(groups):
+        if not isinstance(x_data, dict):
+            # make x_data a dictionary with key "x_data"
+            x_data = {"x_data": x_data}
+
+        # iterate through the values and check they are of the correct shape
+        for key, value in x_data.items():
+            if value.shape[0] != y_data.shape[0]:
+                msg = (
+                    f"{key} and y_data do not have compatible shapes "
+                    "(need to have same number of samples)."
+                )
+                raise ValueError(msg)
+
+        # if groups are passed, check that groups is of the correct shape
+        if groups is not None and y_data.shape[0] != len(groups):
             msg = (
                 "x_data and groups do not have compatible shapes "
                 "(need to have same number of samples)."
             )
             raise ValueError(msg)
+
+        # check train_size and valid_size are between 0 and 1
         if (train_size < 0) or (train_size > 1):
             msg = "train_size must be between 0 and 1."
             raise ValueError(msg)
@@ -82,11 +95,11 @@ class DataSplits:
             msg = "valid_size must be between 0 and 1."
             raise ValueError(msg)
 
-        self.x_data = x_data
-        self.y_data = y_data
-        self.groups = groups
-        self.shuffle = shuffle
-        self.random_state = random_state
+        self.x_data: dict[str, np.array | torch.Tensor] = x_data
+        self.y_data: np.array | torch.Tensor = y_data
+        self.groups: np.array | torch.Tensor | None = groups
+        self.shuffle: bool | None = shuffle
+        self.random_state: int | None = random_state
 
         if indices is not None:
             self.shuffle = False
@@ -124,7 +137,11 @@ class DataSplits:
                     n_splits=1, train_size=train_size, random_state=self.random_state
                 )
                 train_index, test_index = next(
-                    gss.split(X=self.x_data, y=self.y_data, groups=self.groups)
+                    gss.split(
+                        X=next(iter(self.x_data.values())),
+                        y=self.y_data,
+                        groups=self.groups,
+                    )
                 )
 
                 if valid_size is not None:
@@ -136,7 +153,7 @@ class DataSplits:
                     # use GroupShuffleSplit to split the train indices further to get valid set
                     t_ind, v_ind = next(
                         gss.split(
-                            X=self.x_data[train_index],
+                            X=next(iter(self.x_data.values()))[train_index],
                             y=self.y_data[train_index],
                             groups=self.groups[train_index],
                         )
@@ -181,14 +198,7 @@ class DataSplits:
         self, as_DataLoader: bool = False, data_loader_args: dict | None = None
     ) -> (
         tuple[DataLoader, DataLoader, DataLoader]
-        | tuple[
-            np.array | torch.Tensor,
-            np.array | torch.Tensor,
-            np.array | torch.Tensor,
-            np.array | torch.Tensor,
-            np.array | torch.Tensor,
-            np.array | torch.Tensor,
-        ]
+        | tuple[np.array | torch.Tensor | dict[str, np.array | torch.Tensor]]
     ):
         """
         Returns train, validation and test set.
@@ -205,70 +215,91 @@ class DataSplits:
 
         Returns
         -------
-        tuple[DataLoader] | tuple[np.array | torch.Tensor]
+        tuple[DataLoader] | tuple[np.array | torch.Tensor | dict[str, np.array | torch.Tensor]]
             If `as_DataLoader` is True, return tuple of `torch.utils.data.dataloader.DataLoader` objects:
                 - First element is training dataset
                 - Second element is validation dataset
                 - Third element is testing dataset
 
-            If `as_DataLoader` is False, returns tuple of either `numpy.array`s or `torch.Tensor`s:
-                - First element is features for training dataset
-                - Second element is labels for training dataset
-                - Third element is features for validation dataset
-                - Fourth element is labels for validation dataset
-                - Fifth element is features for testing dataset
-                - Sixth element is labels for testing dataset
-
+            If `as_DataLoader` is False, returns tuple:
+                - First element is features (which is either an array/tensor or dictionary) for training dataset
+                - Second element is labels for training dataset as a array/tensor
+                - Third element is features (which is either an array/tensor or dictionary) for validation dataset
+                - Fourth element is labels for validation dataset as a array/tensor
+                - Fifth element is features (which is either an array/tensor or dictionary) for testing dataset
+                - Sixth element is labels for testing dataset as a array/tensor
         """
         if data_loader_args is None:
             data_loader_args = {"batch_size": 64, "shuffle": True}
 
         # obtain validation set
         if self.indices[1] is not None:
-            x_valid = self.x_data[self.indices[1]]
+            x_valid = {
+                key: value[self.indices[1]] for key, value in self.x_data.items()
+            }
             y_valid = self.y_data[self.indices[1]]
         else:
             x_valid = None
             y_valid = None
 
         # obtain training set
-        x_train = self.x_data[self.indices[0]]
+        x_train = {key: value[self.indices[0]] for key, value in self.x_data.items()}
         y_train = self.y_data[self.indices[0]]
 
         # obtain test set
-        x_test = self.x_data[self.indices[2]]
+        x_test = {key: value[self.indices[2]] for key, value in self.x_data.items()}
         y_test = self.y_data[self.indices[2]]
 
         if as_DataLoader:
             # return datasets as DataLoader objects if requested
             if x_valid is not None:
-                # make sure that x_valid and y_valid are torch tensors
-                if isinstance(x_valid, np.ndarray):
-                    x_valid = torch.from_numpy(x_valid)
+                # make sure that each value in x_valid is a torch tensor
+                for key, value in x_valid.items():
+                    if isinstance(value, np.ndarray):
+                        x_valid[key] = torch.from_numpy(value)
+                # make sure that y_valid is a torch tensor
                 if isinstance(y_valid, np.ndarray):
                     y_valid = torch.from_numpy(y_valid)
 
-                valid = TensorDataset(x_valid, y_valid)
+                # create validation TensorDataset from x_valid (a dictionary) and y_valid
+                # extract tensors from the dictionary to get list of tensors
+                # create a TensorDataset using the unpacked tensors
+                valid = TensorDataset(*list(x_valid.values()), y_valid)
                 valid_loader = DataLoader(dataset=valid, **data_loader_args)
             else:
                 valid_loader = None
 
-            # make sure that x_train, y_train, x_test and y_test are torch tensors
-            if isinstance(x_train, np.ndarray):
-                x_train = torch.from_numpy(x_train)
+            # make sure that each value in x_train and x_test is a torch tensor
+            for key, value in x_train.items():
+                if isinstance(value, np.ndarray):
+                    x_train[key] = torch.from_numpy(value)
+            for key, value in x_test.items():
+                if isinstance(value, np.ndarray):
+                    x_test[key] = torch.from_numpy(value)
+
+            # make sure that y_train and y_test are torch tensors
             if isinstance(y_train, np.ndarray):
                 y_train = torch.from_numpy(y_train)
-            if isinstance(x_test, np.ndarray):
-                x_test = torch.from_numpy(x_test)
             if isinstance(y_test, np.ndarray):
                 y_test = torch.from_numpy(y_test)
 
-            train = TensorDataset(x_train, y_train)
-            test = TensorDataset(x_test, y_test)
+            # create validation TensorDataset from x_train and x_test (dictionary of tensors)
+            # extract tensors from the dictionary to get list of tensors
+            # create a TensorDataset using the unpacked tensors
+            train = TensorDataset(*list(x_train.values()), y_train)
+            test = TensorDataset(*list(x_test.values()), y_test)
+
+            # create DataLoader objects for train and test sets
             train_loader = DataLoader(dataset=train, **data_loader_args)
             test_loader = DataLoader(dataset=test, **data_loader_args)
 
             return train_loader, valid_loader, test_loader
+
+        # if only one key in x_data, then just return its only value rather than a dictionary
+        if len(self.x_data) == 1:
+            x_train = next(iter(x_train.values()))
+            x_valid = next(iter(x_valid.values())) if x_valid is not None else None
+            x_test = next(iter(x_test.values()))
 
         return (
             x_train,
@@ -286,8 +317,11 @@ class Folds:
 
     Parameters
     ----------
-    x_data : np.array | torch.Tensor
-        Features for prediction.
+    x_data : np.array | torch.Tensor | dict[str, np.array | torch.Tensor]
+        Features for prediction. This can be a numpy array or torch tensor
+        of shape (n_samples, n_features), or a dictionary where the keys
+        are the names of the features and the values are numpy arrays or
+        torch tensors of shape (n_samples, n_features).
     y_data : np.array | torch.Tensor
         Variable to predict.
     groups : np.array | torch.Tensor | None, optional
@@ -328,7 +362,7 @@ class Folds:
 
     def __init__(
         self,
-        x_data: np.array | torch.Tensor,
+        x_data: np.array | torch.Tensor | dict[str, np.array | torch.Tensor],
         y_data: np.array | torch.Tensor,
         groups: np.array | torch.Tensor | None = None,
         n_splits: int = 5,
@@ -341,27 +375,39 @@ class Folds:
         if n_splits < 2:
             msg = "n_splits should be at least 2."
             raise ValueError(msg)
-        if x_data.shape[0] != y_data.shape[0]:
-            msg = (
-                "x_data and y_data do not have compatible shapes "
-                "(need to have same number of samples)."
-            )
-            raise ValueError(msg)
-        if groups is not None and x_data.shape[0] != len(groups):
+
+        if not isinstance(x_data, dict):
+            # make x_data a dictionary with key "x_data"
+            x_data = {"x_data": x_data}
+
+        # iterate through the values and check they are of the correct shape
+        for key, value in x_data.items():
+            if value.shape[0] != y_data.shape[0]:
+                msg = (
+                    f"{key} and y_data do not have compatible shapes "
+                    "(need to have same number of samples)."
+                )
+                raise ValueError(msg)
+
+        # if groups are passed, check that groups is of the correct shape
+        if groups is not None and y_data.shape[0] != len(groups):
             msg = (
                 "x_data and groups do not have compatible shapes "
                 "(need to have same number of samples)."
             )
             raise ValueError(msg)
+
+        # check valid_size is between 0 and 1
         if valid_size is not None and ((valid_size < 0) or (valid_size > 1)):
             msg = "valid_size must be between 0 and 1."
             raise ValueError(msg)
 
-        self.x_data = x_data
-        self.y_data = y_data
-        self.groups = groups
-        self.n_splits = n_splits
-        self.shuffle = shuffle
+        self.x_data: dict[str, np.array | torch.Tensor] = x_data
+        self.y_data: np.array | torch.Tensor = y_data
+        self.groups: np.array | torch.Tensor | None = groups
+        self.n_splits: int = n_splits
+        self.shuffle: bool | None = shuffle
+        self.random_state: int | None = random_state
 
         if indices is not None:
             self.shuffle = False
@@ -422,7 +468,9 @@ class Folds:
                 )
 
             # obtain fold indices
-            self.fold_indices = list(self.fold.split(X=self.x_data, groups=self.groups))
+            self.fold_indices = list(
+                self.fold.split(X=next(iter(self.x_data.values())), groups=self.groups)
+            )
 
             # make the validation sets within the indices
             for k in range(self.n_splits):
@@ -478,19 +526,19 @@ class Folds:
 
         Returns
         -------
-        tuple[DataLoader] | tuple[np.array | torch.Tensor]
+        tuple[DataLoader] | tuple[np.array | torch.Tensor | dict[str, np.array | torch.Tensor]]
             If `as_DataLoader` is True, return tuple of `torch.utils.data.dataloader.DataLoader` objects:
                 - First element is training dataset
                 - Second element is validation dataset
                 - Third element is testing dataset
 
-            If `as_DataLoader` is False, returns tuple of either `numpy.array`s or `torch.Tensor`s:
-                - First element is features for training dataset
-                - Second element is labels for training dataset
-                - Third element is features for validation dataset
-                - Fourth element is labels for validation dataset
-                - Fifth element is features for testing dataset
-                - Sixth element is labels for testing dataset
+            If `as_DataLoader` is False, returns tuple:
+                - First element is features (which is either an array/tensor or dictionary) for training dataset
+                - Second element is labels for training dataset as a array/tensor
+                - Third element is features (which is either an array/tensor or dictionary) for validation dataset
+                - Fourth element is labels for validation dataset as a array/tensor
+                - Fifth element is features (which is either an array/tensor or dictionary) for testing dataset
+                - Sixth element is labels for testing dataset as a array/tensor
 
         Raises
         ------
@@ -513,50 +561,70 @@ class Folds:
 
         # obtain validation set
         if valid_index is not None:
-            x_valid = self.x_data[valid_index]
+            x_valid = {key: value[valid_index] for key, value in self.x_data.items()}
             y_valid = self.y_data[valid_index]
         else:
             x_valid = None
             y_valid = None
 
         # obtain training set
-        x_train = self.x_data[train_index]
+        x_train = {key: value[train_index] for key, value in self.x_data.items()}
         y_train = self.y_data[train_index]
 
         # obtain test set
-        x_test = self.x_data[test_index]
+        x_test = {key: value[test_index] for key, value in self.x_data.items()}
         y_test = self.y_data[test_index]
 
         if as_DataLoader:
             # return datasets as DataLoader objects if requested
-            if valid_index is not None:
-                # make sure that x_valid and y_valid are torch tensors
-                if isinstance(x_valid, np.ndarray):
-                    x_valid = torch.from_numpy(x_valid)
+            if x_valid is not None:
+                # make sure that each value in x_valid is a torch tensor
+                for key, value in x_valid.items():
+                    if isinstance(value, np.ndarray):
+                        x_valid[key] = torch.from_numpy(value)
+                # make sure that y_valid is a torch tensor
                 if isinstance(y_valid, np.ndarray):
                     y_valid = torch.from_numpy(y_valid)
 
-                valid = TensorDataset(x_valid, y_valid)
+                # create validation TensorDataset from x_valid (a dictionary) and y_valid
+                # extract tensors from the dictionary to get list of tensors
+                # create a TensorDataset using the unpacked tensors
+                valid = TensorDataset(*list(x_valid.values()), y_valid)
                 valid_loader = DataLoader(dataset=valid, **data_loader_args)
             else:
                 valid_loader = None
 
-            # make sure that x_train, y_train, x_test and y_test are torch tensors
-            if isinstance(x_train, np.ndarray):
-                x_train = torch.from_numpy(x_train)
+            # make sure that each value in x_train and x_test is a torch tensor
+            for key, value in x_train.items():
+                if isinstance(value, np.ndarray):
+                    x_train[key] = torch.from_numpy(value)
+            for key, value in x_test.items():
+                if isinstance(value, np.ndarray):
+                    x_test[key] = torch.from_numpy(value)
+
+            # make sure that y_train and y_test are torch tensors
             if isinstance(y_train, np.ndarray):
                 y_train = torch.from_numpy(y_train)
-            if isinstance(x_test, np.ndarray):
-                x_test = torch.from_numpy(x_test)
             if isinstance(y_test, np.ndarray):
                 y_test = torch.from_numpy(y_test)
 
-            train = TensorDataset(x_train, y_train)
-            test = TensorDataset(x_test, y_test)
+            # create validation TensorDataset from x_train and x_test (dictionary of tensors)
+            # extract tensors from the dictionary to get list of tensors
+            # create a TensorDataset using the unpacked tensors
+            train = TensorDataset(*list(x_train.values()), y_train)
+            test = TensorDataset(*list(x_test.values()), y_test)
+
+            # create DataLoader objects for train and test sets
             train_loader = DataLoader(dataset=train, **data_loader_args)
             test_loader = DataLoader(dataset=test, **data_loader_args)
 
             return train_loader, valid_loader, test_loader
+
+        # if only one key in x_data, then just return its only value rather than a dictionary
+        if len(self.x_data) == 1:
+            x_train = next(iter(x_train.values()))
+            x_valid = next(iter(x_valid.values())) if x_valid is not None else None
+            x_test = next(iter(x_test.values()))
 
         return (
             x_train,

@@ -1002,7 +1002,7 @@ class PrepareData:
         include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> dict[str, torch.tensor | int]:
+    ) -> dict[str, dict[str, torch.tensor] | int | None]:
         """
         Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SWNUNetwork` model.
 
@@ -1028,12 +1028,14 @@ class PrepareData:
 
         Returns
         -------
-        dict[str, torch.tensor | int]
+        dict[str, dict[str, torch.tensor] | int | None]
             Dictionary where:
-            - "path" is a tensor of the path to be passed into the `nlpsig_networks.SWNUNetwork` network
-            - "features" is a tensor of the features (e.g. time features or additional features)
+            - "x_data" is a dictionary where:
+              - "path" is a tensor of the path to be passed into the `nlpsig_networks.SWNUNetwork` network
+              - "features" is a tensor of the features (e.g. time features or additional features)
             - "input_channels" is the number of channels in the path
             - "num_features" is the number of features (e.g. time features or additional features)
+              (this is None if there are no additional features to concatenate)
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
@@ -1064,9 +1066,13 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
+
                 features_to_cat.append(
                     torch.from_numpy(self.pooled_embeddings.astype("float")).float()
                 )
+
+                # save embedding dimension
+                embedding_dim = self.pooled_embeddings.shape[1]
             elif self.pad_method == "history":
                 if self.verbose:
                     print(
@@ -1087,11 +1093,15 @@ class PrepareData:
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
+
                     features_to_cat.append(
                         torch.from_numpy(
                             self.embeddings_reduced.astype("float")
                         ).float()
                     )
+
+                    # save embedding dimension
+                    embedding_dim = self.embeddings_reduced.shape[1]
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(
@@ -1105,6 +1115,11 @@ class PrepareData:
                             torch.from_numpy(self.embeddings.astype("float")).float()
                         )
 
+                        # save embedding dimension
+                        embedding_dim = self.embeddings.shape[1]
+        else:
+            embedding_dim = 0
+
         if include_features_in_input:
             if self.pad_method == "id":
                 raise NotImplementedError(
@@ -1113,12 +1128,17 @@ class PrepareData:
 
             # create a tensor of the features picked from the dataframe
             features_to_cat.append(
-                torch.from_numpy(
-                    self.df_padded[feature_names].values.astype("float")
-                ).float()
+                torch.from_numpy(self.df[feature_names].values.astype("float")).float()
             )
 
+            # save number of features
+            num_features = self.df[feature_names].shape[1]
+        else:
+            num_features = 0
+
+        # concatenate the features that we want to include in the FFN input
         if len(features_to_cat) == 0:
+            # no features to concatenate
             features = None
         else:
             features = torch.cat(features_to_cat, dim=1)
@@ -1127,13 +1147,12 @@ class PrepareData:
         path = torch.from_numpy(
             self.get_path(include_features=include_features_in_path)
         )
-        input_channels = path.shape[2]
 
         return {
-            "path": path,
-            "features": features,
-            "input_channels": input_channels,
-            "num_features": features.shape[1] if features is not None else 0,
+            "x_data": {"path": path, "features": features},
+            "input_channels": path.shape[2],
+            "embedding_dim": embedding_dim,
+            "num_features": num_features,
         }
 
     def check_history_length_for_SeqSigNet(
@@ -1224,13 +1243,14 @@ class PrepareData:
 
         Returns
         -------
-        dict[str, torch.tensor | int]
-            dict[str, torch.tensor | int]
+        dict[str, dict[str, torch.tensor] | int | None]
             Dictionary where:
-            - "path" is a tensor of the path to be passed into the `nlpsig_networks.SeqSigNet` network
-            - "features" is a tensor of the features (e.g. time features or additional features)
+            - "x_data" is a dictionary where:
+              - "path" is a tensor of the path to be passed into the `nlpsig_networks.SeqSigNet` network
+              - "features" is a tensor of the features (e.g. time features or additional features)
             - "input_channels" is the number of channels in the path
             - "num_features" is the number of features (e.g. time features or additional features)
+              (this is None if there are no additional features to concatenate)
 
         Raises
         ------
@@ -1255,9 +1275,9 @@ class PrepareData:
 
         # taking windows of the path created (determined by shift, window_size, n)
         # obtain 4 dimensional tensor with dimsnions [batch, history, channels, units]
-        input["path"] = torch.stack(
+        input["x_data"]["path"] = torch.stack(
             [
-                input["path"][:, (i * shift) : (i * shift + window_size), :]
+                input["x_data"]["path"][:, (i * shift) : (i * shift + window_size), :]
                 for i in range(n)
             ],
             dim=3,

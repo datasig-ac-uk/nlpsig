@@ -1274,13 +1274,13 @@ class PrepareData:
         )
 
         # taking windows of the path created (determined by shift, window_size, n)
-        # obtain 4 dimensional tensor with dimsnions [batch, history, channels, units]
+        # obtain 4 dimensional tensor with dimsnions [batch, units, history, channels]
         input["x_data"]["path"] = torch.stack(
             [
                 input["x_data"]["path"][:, (i * shift) : (i * shift + window_size), :]
                 for i in range(n)
             ],
-            dim=3,
+            dim=1,
         )
 
         return input

@@ -1211,7 +1211,7 @@ class PrepareData:
         include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> dict[str, torch.tensor | int]:
+    ) -> dict[str, dict[str, torch.tensor] | int | None]:
         """
         Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SeqSigNet` model.
 

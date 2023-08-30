@@ -12,7 +12,7 @@ def test_datasplits_default_init(X_data, y_data):
     # test default initialisation
     # (no groups passed, no shuffling so random_state gets is None)
     ds = DataSplits(x_data=X_data, y_data=y_data)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been made correctly
@@ -26,7 +26,7 @@ def test_datasplits_default_init(X_data, y_data):
 def test_datasplits_default_shuffle(X_data, y_data):
     # test default initialisation with shuffling
     ds = DataSplits(x_data=X_data, y_data=y_data, shuffle=True, random_state=42)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been made correctly
@@ -38,7 +38,7 @@ def test_datasplits_default_shuffle(X_data, y_data):
 
     # check that the seed was set correctly by checking that the indices are the same
     ds_2 = DataSplits(x_data=X_data, y_data=y_data, shuffle=True, random_state=42)
-    assert ds_2.x_data is ds.x_data
+    assert ds_2.x_data == ds.x_data
     assert ds_2.y_data is ds.y_data
     assert ds_2.groups is None
     # check indices are the same
@@ -51,7 +51,7 @@ def test_datasplits_default_shuffle(X_data, y_data):
 def test_datasplits_no_validation(X_data, y_data):
     # test initialisation with no validation set
     ds = DataSplits(x_data=X_data, y_data=y_data, valid_size=None)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been made correctly
@@ -69,7 +69,7 @@ def test_datasplits_no_validation_shuffle(X_data, y_data):
     ds = DataSplits(
         x_data=X_data, y_data=y_data, valid_size=None, shuffle=True, random_state=42
     )
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been made correctly
@@ -85,7 +85,7 @@ def test_datasplits_no_validation_shuffle(X_data, y_data):
     ds_2 = DataSplits(
         x_data=X_data, y_data=y_data, valid_size=None, shuffle=True, random_state=42
     )
-    assert ds_2.x_data is ds.x_data
+    assert ds_2.x_data == ds.x_data
     assert ds_2.y_data is ds.y_data
     assert ds_2.groups is None
     # check indices are the same
@@ -156,7 +156,7 @@ def test_datasplits_valid_size_incorrect_range(X_data, y_data):
 def test_datasplits_indices(X_data, y_data, indices):
     # test initialisation with indices
     ds = DataSplits(x_data=X_data, y_data=y_data, indices=indices)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been loaded in correctly
@@ -172,7 +172,7 @@ def test_datasplits_indices(X_data, y_data, indices):
 def test_datasplits_indices_no_validation(X_data, y_data, indices_no_validation):
     # test initialisation with indices with no validation set
     ds = DataSplits(x_data=X_data, y_data=y_data, indices=indices_no_validation)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check data split has been loaded in correctly
@@ -243,7 +243,7 @@ def test_datasplits_indices_out_of_range(X_data, y_data, indices):
 def test_datasplit_groups(X_data, y_data, groups):
     # test initialisation with groups
     ds = DataSplits(x_data=X_data, y_data=y_data, groups=groups)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     # check data split has been made correctly
@@ -260,7 +260,7 @@ def test_datasplit_groups_shuffle(X_data, y_data, groups):
     ds = DataSplits(
         x_data=X_data, y_data=y_data, groups=groups, shuffle=False, random_state=50
     )
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     # check data split has been made correctly
@@ -274,7 +274,7 @@ def test_datasplit_groups_shuffle(X_data, y_data, groups):
 def test_datasplits_groups_no_validation(X_data, y_data, groups):
     # test initialisation with groups with no validation set
     ds = DataSplits(x_data=X_data, y_data=y_data, groups=groups, valid_size=None)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     # check data split has been made correctly

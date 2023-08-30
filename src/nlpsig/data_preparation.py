@@ -1002,7 +1002,8 @@ class PrepareData:
         include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> tuple[torch.tensor, int]:
+        path_indices: list | np.array | None = None,
+    ) -> dict[str, dict[str, torch.tensor] | int | None]:
         """
         Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SWNUNetwork` model.
 
@@ -1025,26 +1026,32 @@ class PrepareData:
             Whether or not to concatenate the dimension reduced embeddings, by default False.
             This is ignored if we created a path for each if in `.id_column`,
             i.e. `.pad_method='id'`.
+        path_indices : list | np.array | None, optional
+            If not None, will return the path for the indices specified in `path_indices`.
+            If None, will return the path for all indices in `.df` (or all ids in `.id_column`
+            if `pad_by="id"`), by default None.
 
         Returns
         -------
-        Tuple[torch.tensor, int]
-            First element is a tensor to be inputted to `nlpsig_networks.SWNUNetwork` model.
-            Second element is the number of channels in the path for which
-            we compute the path signature for in `nlpsig_networks.SWNUNetwork`.
+        dict[str, dict[str, torch.tensor] | int | None]
+            Dictionary where:
+            - "x_data" is a dictionary where:
+              - "path" is a tensor of the path to be passed into the `nlpsig_networks.SWNUNetwork` network
+              - "features" is a tensor of the features (e.g. time features or additional features)
+            - "input_channels" is the number of channels in the path
+            - "num_features" is the number of features (e.g. time features or additional features)
+              (this is None if there are no additional features to concatenate)
         """
         if self.array_padded is None:
             raise ValueError("Need to first call to create the path `.pad()`.")
-
-        # obtains a torch tensor which can be inputted into SWNUNetwork
-        # computes how many features there are currently
+        # obtain the features that we have in the path
         # (which occur in the first n_features columns)
-        n_features = len(
-            [item for item in self._feature_list if item in self.df_padded]
-        )
+        feature_names = [item for item in self._feature_list if item in self.df_padded]
 
+        # obtain the features to concatenate
+        features_to_cat = []
         if include_embedding_in_input:
-            # repeat the embeddings which will be concatenated to the path later
+            # obtain the embeddings which will be concatenated to the path in the network
             if self.pad_method == "id":
                 if self.verbose:
                     print(
@@ -1064,7 +1071,13 @@ class PrepareData:
                         "samples as there are pooled embeddings, i.e `.array_padded.shape[0]` "
                         "must equal `.pooled_embeddings.shape[0]`."
                     )
-                emb = torch.from_numpy(self.pooled_embeddings.astype("float")).float()
+
+                features_to_cat.append(
+                    torch.from_numpy(self.pooled_embeddings.astype("float")).float()
+                )
+
+                # save embedding dimension
+                embedding_dim = self.pooled_embeddings.shape[1]
             elif self.pad_method == "history":
                 if self.verbose:
                     print(
@@ -1085,9 +1098,15 @@ class PrepareData:
                             "samples as there are embeddings, i.e `.array_padded.shape[0]` "
                             "must equal `.embeddings_reduced.shape[0]`."
                         )
-                    emb = torch.from_numpy(
-                        self.embeddings_reduced.astype("float")
-                    ).float()
+
+                    features_to_cat.append(
+                        torch.from_numpy(
+                            self.embeddings_reduced.astype("float")
+                        ).float()
+                    )
+
+                    # save embedding dimension
+                    embedding_dim = self.embeddings_reduced.shape[1]
                 else:
                     if self.array_padded.shape[0] != self.embeddings.shape[0]:
                         raise ValueError(
@@ -1097,52 +1116,54 @@ class PrepareData:
                             "must equal `.embeddings.shape[0]`."
                         )
                     else:
-                        emb = torch.from_numpy(self.embeddings.astype("float")).float()
-            repeat_emb = (
-                emb.unsqueeze(2)
-                .repeat(1, 1, self.array_padded.shape[1])
-                .transpose(1, 2)
+                        features_to_cat.append(
+                            torch.from_numpy(self.embeddings.astype("float")).float()
+                        )
+
+                        # save embedding dimension
+                        embedding_dim = self.embeddings.shape[1]
+        else:
+            embedding_dim = 0
+
+        if include_features_in_input:
+            if self.pad_method == "id":
+                raise NotImplementedError(
+                    "Not yet implemented to include features in input when `pad_method='id'."
+                )
+
+            # create a tensor of the features picked from the dataframe
+            features_to_cat.append(
+                torch.from_numpy(self.df[feature_names].values.astype("float")).float()
             )
 
-        if include_features_in_path:
-            # make sure path includes the features
-            path = torch.from_numpy(self.get_path(include_features=True))
-            input_channels = path.shape[2]
-            if include_features_in_input:
-                # need to repeat the feature columns
-                # if there are no features, then we don't need to repeat anything
-                if n_features == 1:
-                    path = torch.cat([path, path[:, :, 0].unsqueeze(2)], dim=2)
-                elif n_features > 1:
-                    path = torch.cat([path, path[:, :, 0:n_features]], dim=2)
+            # save number of features
+            num_features = self.df[feature_names].shape[1]
         else:
-            if include_features_in_input:
-                # path doesn't need to include the features
-                # but we still want to include them in the input to the FFN for classification
-                path = torch.from_numpy(self.get_path(include_features=True))
-                input_channels = path.shape[2] - n_features
-                # need to move features to the end of the path
-                # if there are no features, then we don't need to move anything
-                if n_features == 1:
-                    path = torch.cat(
-                        [path[:, :, n_features:], path[:, :, 0].unsqueeze(2)],
-                        dim=2,
-                    )
-                elif n_features > 1:
-                    path = torch.cat(
-                        [path[:, :, n_features:], path[:, :, 0:n_features]],
-                        dim=2,
-                    )
-            else:
-                # path doesn't need to include the features
-                # and don't need to include them in the input to the FFN for classification
-                path = torch.from_numpy(self.get_path(include_features=False))
-                input_channels = path.shape[2]
+            num_features = 0
 
-        if include_embedding_in_input:
-            path = torch.cat([path, repeat_emb], dim=2)
+        # concatenate the features that we want to include in the FFN input
+        if len(features_to_cat) == 0:
+            # no features to concatenate
+            features = None
+        else:
+            features = torch.cat(features_to_cat, dim=1)
 
-        return path, input_channels
+        # construct path - make sure path includes the features if requested
+        path = torch.from_numpy(
+            self.get_path(include_features=include_features_in_path)
+        )
+
+        if path_indices is not None:
+            path = path[path_indices, :, :]
+            if features is not None:
+                features = features[path_indices, :]
+
+        return {
+            "x_data": {"path": path, "features": features},
+            "input_channels": path.shape[2],
+            "embedding_dim": embedding_dim,
+            "num_features": num_features,
+        }
 
     def check_history_length_for_SeqSigNet(
         self, shift: int, window_size: int, n: int
@@ -1200,7 +1221,8 @@ class PrepareData:
         include_features_in_input: bool,
         include_embedding_in_input: bool,
         reduced_embeddings: bool = False,
-    ) -> tuple[torch.tensor, int]:
+        path_indices: list | np.array | None = None,
+    ) -> dict[str, dict[str, torch.tensor] | int | None]:
         """
         Returns a `torch.tensor` object that can be passed into `nlpsig_networks.SeqSigNet` model.
 
@@ -1229,13 +1251,21 @@ class PrepareData:
             Whether or not to concatenate the dimension reduced embeddings, by default False.
             This is ignored if we created a path for each if in `.id_column`,
             i.e. `.pad_method='id'`.
+        path_indices : list | np.array | None, optional
+            If not None, will return the path for the indices specified in `path_indices`.
+            If None, will return the path for all indices in `.df` (or all ids in `.id_column`
+            if `pad_by="id"`), by default None.
 
         Returns
         -------
-        Tuple[torch.tensor, int]
-            First element is a tensor to be inputted to `nlpsig_networks.SeqSigNet` model.
-            Second element is the number of channels in the path for which
-            we compute the path signature for in `nlpsig_networks.SeqSigNet`.
+        dict[str, dict[str, torch.tensor] | int | None]
+            Dictionary where:
+            - "x_data" is a dictionary where:
+              - "path" is a tensor of the path to be passed into the `nlpsig_networks.SeqSigNet` network
+              - "features" is a tensor of the features (e.g. time features or additional features)
+            - "input_channels" is the number of channels in the path
+            - "num_features" is the number of features (e.g. time features or additional features)
+              (this is None if there are no additional features to concatenate)
 
         Raises
         ------
@@ -1251,21 +1281,22 @@ class PrepareData:
             )
 
         # obtain 3 dimensional tensor with dimensions [batch, history, channels]
-        swnu_path, input_channels = self.get_torch_path_for_SWNUNetwork(
+        input = self.get_torch_path_for_SWNUNetwork(
             include_features_in_path=include_features_in_path,
             include_features_in_input=include_features_in_input,
             include_embedding_in_input=include_embedding_in_input,
             reduced_embeddings=reduced_embeddings,
+            path_indices=path_indices,
         )
 
         # taking windows of the path created (determined by shift, window_size, n)
-        # obtain 4 dimensional tensor with dimsnions [batch, history, channels, units]
-        seqsignnet_path = torch.stack(
+        # obtain 4 dimensional tensor with dimsnions [batch, units, history, channels]
+        input["x_data"]["path"] = torch.stack(
             [
-                swnu_path[:, (i * shift) : (i * shift + window_size), :]
+                input["x_data"]["path"][:, (i * shift) : (i * shift + window_size), :]
                 for i in range(n)
             ],
-            dim=3,
+            dim=1,
         )
 
-        return seqsignnet_path, input_channels
+        return input

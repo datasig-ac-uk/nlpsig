@@ -1,6 +1,7 @@
 # nlpsig
 
 [![Actions Status][actions-badge]][actions-link]
+[![Codecov Status][codecov-badge]][codecov-link]
 [![Documentation Status][rtd-badge]][rtd-link]
 [![PyPI version][pypi-version]][pypi-link]
 [![PyPI platforms][pypi-platforms]][pypi-link]
@@ -13,6 +14,8 @@
 <!-- prettier-ignore-start -->
 [actions-badge]:            https://github.com/datasig-ac-uk/nlpsig/workflows/CI/badge.svg
 [actions-link]:             https://github.com/datasig-ac-uk/nlpsig/actions
+[codecov-badge]:            https://codecov.io/gh/datasig-ac-uk/nlpsig/branch/main/graph/badge.svg?token=SU9HZ9NH70
+[codecov-link]:             https://codecov.io/gh/datasig-ac-uk/nlpsig
 [conda-badge]:              https://img.shields.io/conda/vn/conda-forge/nlpsig
 [conda-link]:               https://github.com/conda-forge/nlpsig-feedstock
 [github-discussions-badge]: https://img.shields.io/static/v1?label=Discussions&message=Ask&color=blue&logo=github

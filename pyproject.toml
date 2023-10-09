@@ -13,7 +13,7 @@ authors = [
 ]
 description = "Path signatures for Natural Language Processing."
 readme = "README.md"
-requires-python = ">=3.8, <3.9"
+requires-python = ">=3.8, <3.12"
 classifiers = [
   "Development Status :: 1 - Planning",
   "Intended Audience :: Science/Research",
@@ -24,6 +24,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
   "Topic :: Scientific/Engineering",
 ]
 dynamic = ["version"]
@@ -77,6 +80,7 @@ addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
 xfail_strict = true
 filterwarnings = [
     "error",
+    "ignore::UserWarning",
     "ignore:Tensorflow not installed; ParametricUMAP will be unavailable:ImportWarning", # umap
     "ignore:pkg_resources is deprecated as an API:DeprecationWarning", # umap
     "ignore:Deprecated call to *:DeprecationWarning",

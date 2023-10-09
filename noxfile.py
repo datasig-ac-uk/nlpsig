@@ -11,7 +11,7 @@ DIR = Path(__file__).parent.resolve()
 nox.options.sessions = ["lint", "tests"]
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def lint(session: nox.Session) -> None:
     """
     Run the linter.
@@ -20,7 +20,7 @@ def lint(session: nox.Session) -> None:
     session.run("pre-commit", "run", "--all-files", *session.posargs)
 
 
-# @nox.session(python="3.8")
+# @nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 # def pylint(session: nox.Session) -> None:
 #     """
 #     Run PyLint.
@@ -31,7 +31,7 @@ def lint(session: nox.Session) -> None:
 #     session.run("pylint", "src", *session.posargs)
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def tests(session: nox.Session) -> None:
     """
     Run the unit and regular tests.
@@ -40,7 +40,7 @@ def tests(session: nox.Session) -> None:
     session.run("pytest", *session.posargs)
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def coverage(session: nox.Session) -> None:
     """
     Run tests and compute coverage.
@@ -50,7 +50,7 @@ def coverage(session: nox.Session) -> None:
     tests(session)
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def docs(session: nox.Session) -> None:
     """
     Build the docs. Pass "--serve" to serve.
@@ -69,7 +69,7 @@ def docs(session: nox.Session) -> None:
         session.run("python", "-m", "http.server", "8000", "-d", "_build/html")
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def build_api_docs(session: nox.Session) -> None:
     """
     Build (regenerate) API docs.
@@ -88,7 +88,7 @@ def build_api_docs(session: nox.Session) -> None:
     )
 
 
-@nox.session(python="3.8")
+@nox.session(python=["3.8", "3.9", "3.10", "3.11"])
 def build(session: nox.Session) -> None:
     """
     Build an SDist and wheel.

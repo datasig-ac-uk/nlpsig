@@ -391,6 +391,100 @@ def test_folds_get_splits_no_validation(X_data, y_data):
         assert type(splits_as_dl[5]) == np.ndarray
 
 
+def test_folds_indices_get_splits(X_data, y_data, three_folds):
+    # test get_splits functionality for initialisation of 3 folds with indices
+    ds = Folds(x_data=X_data, y_data=y_data, n_splits=3, indices=three_folds)
+
+    # getting data splits as DataLoaders
+    for k in range(3):
+        splits_as_dl = ds.get_splits(as_DataLoader=True, fold_index=k)
+        assert type(splits_as_dl) == tuple
+        assert type(splits_as_dl[0]) == DataLoader
+        assert type(splits_as_dl[1]) == DataLoader
+        assert type(splits_as_dl[2]) == DataLoader
+
+    # getting data splits as numpy arrays
+    for k in range(3):
+        splits_as_dl = ds.get_splits(as_DataLoader=False, fold_index=k)
+        assert type(splits_as_dl) == tuple
+        assert type(splits_as_dl[0]) == np.ndarray
+        assert type(splits_as_dl[1]) == np.ndarray
+        assert type(splits_as_dl[2]) == np.ndarray
+        assert type(splits_as_dl[3]) == np.ndarray
+        assert type(splits_as_dl[4]) == np.ndarray
+        assert type(splits_as_dl[5]) == np.ndarray
+        # testing the pulled out data is the same as the original data
+        assert np.array_equal(
+            splits_as_dl[0],
+            X_data[three_folds[k][0]],
+        )
+        assert np.array_equal(
+            splits_as_dl[1],
+            y_data[three_folds[k][0]],
+        )
+        assert np.array_equal(
+            splits_as_dl[2],
+            X_data[three_folds[k][1]],
+        )
+        assert np.array_equal(
+            splits_as_dl[3],
+            y_data[three_folds[k][1]],
+        )
+        assert np.array_equal(
+            splits_as_dl[4],
+            X_data[three_folds[k][2]],
+        )
+        assert np.array_equal(
+            splits_as_dl[5],
+            y_data[three_folds[k][2]],
+        )
+
+
+def test_folds_indices_get_splits_no_validation(
+    X_data, y_data, three_folds_no_validation
+):
+    # test get_splits functionality for initialisation of 3 folds with no validation set
+    ds = Folds(
+        x_data=X_data, y_data=y_data, n_splits=3, indices=three_folds_no_validation
+    )
+
+    # getting data splits as DataLoaders
+    for k in range(3):
+        splits_as_dl = ds.get_splits(as_DataLoader=True, fold_index=k)
+        assert type(splits_as_dl) == tuple
+        assert type(splits_as_dl[0]) == DataLoader
+        assert splits_as_dl[1] is None
+        assert type(splits_as_dl[2]) == DataLoader
+
+    # getting data splits as numpy arrays
+    for k in range(3):
+        splits_as_dl = ds.get_splits(as_DataLoader=False, fold_index=k)
+        assert type(splits_as_dl) == tuple
+        assert type(splits_as_dl[0]) == np.ndarray
+        assert type(splits_as_dl[1]) == np.ndarray
+        assert splits_as_dl[2] is None
+        assert splits_as_dl[3] is None
+        assert type(splits_as_dl[4]) == np.ndarray
+        assert type(splits_as_dl[5]) == np.ndarray
+        # testing the pulled out data is the same as the original data
+        assert np.array_equal(
+            splits_as_dl[0],
+            X_data[three_folds_no_validation[k][0]],
+        )
+        assert np.array_equal(
+            splits_as_dl[1],
+            y_data[three_folds_no_validation[k][0]],
+        )
+        assert np.array_equal(
+            splits_as_dl[4],
+            X_data[three_folds_no_validation[k][2]],
+        )
+        assert np.array_equal(
+            splits_as_dl[5],
+            y_data[three_folds_no_validation[k][2]],
+        )
+
+
 def test_folds_get_splits_groups(X_data, y_data, groups):
     # test get_splits functionality for initialisation of 3 folds and groups
     ds = Folds(x_data=X_data, y_data=y_data, groups=groups)

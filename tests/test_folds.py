@@ -12,7 +12,7 @@ def test_folds_default_init(X_data, y_data):
     # test default initialisation
     # (5 Folds by default, no groups passed, no shuffling so random_state is None)
     ds = Folds(x_data=X_data, y_data=y_data)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     assert type(ds.fold_indices) == tuple
@@ -30,7 +30,7 @@ def test_folds_default_init(X_data, y_data):
 def test_folds_default_shuffle(X_data, y_data):
     # test default initialisation with shuffling
     ds = Folds(x_data=X_data, y_data=y_data, shuffle=True, random_state=42)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     assert type(ds.fold_indices) == tuple
@@ -46,7 +46,7 @@ def test_folds_default_shuffle(X_data, y_data):
 
     # check that the seed was set correctly by checking that the indices are the same
     ds_2 = Folds(x_data=X_data, y_data=y_data, shuffle=True, random_state=42)
-    assert ds_2.x_data is ds.x_data
+    assert ds_2.x_data == ds.x_data
     assert ds_2.y_data is ds.y_data
     assert ds_2.groups is None
     # check indices are the same
@@ -59,7 +59,7 @@ def test_folds_default_shuffle(X_data, y_data):
 def test_folds_no_validation(X_data, y_data):
     # test initialisation with no validation set
     ds = Folds(x_data=X_data, y_data=y_data, valid_size=None)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check that 5 folds have been created
@@ -80,7 +80,7 @@ def test_folds_no_validation_shuffle(X_data, y_data):
     ds = Folds(
         x_data=X_data, y_data=y_data, valid_size=None, shuffle=True, random_state=42
     )
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check that 5 folds have been created
@@ -99,7 +99,7 @@ def test_folds_no_validation_shuffle(X_data, y_data):
     ds_2 = Folds(
         x_data=X_data, y_data=y_data, valid_size=None, shuffle=True, random_state=42
     )
-    assert ds_2.x_data is ds.x_data
+    assert ds_2.x_data == ds.x_data
     assert ds_2.y_data is ds.y_data
     assert ds_2.groups is None
     # check indices are the same
@@ -150,7 +150,7 @@ def test_folds_valid_size_incorrect_range(X_data, y_data):
 def test_folds_indices(X_data, y_data, three_folds):
     # test initialisation with indices
     ds = Folds(x_data=X_data, y_data=y_data, n_splits=3, indices=three_folds)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check folds has been loaded in correctly
@@ -168,7 +168,7 @@ def test_folds_indices_no_validation(X_data, y_data, three_folds_no_validation):
     ds = Folds(
         x_data=X_data, y_data=y_data, n_splits=3, indices=three_folds_no_validation
     )
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is None
     # check folds has been loaded in correctly
@@ -289,7 +289,7 @@ def test_folds_indices_out_of_range(X_data, y_data, three_folds):
 def test_datasplit_groups(X_data, y_data, groups):
     # test initialisation with groups
     ds = Folds(x_data=X_data, y_data=y_data, groups=groups)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     assert type(ds.fold_indices) == tuple
@@ -309,7 +309,7 @@ def test_datasplit_groups_shuffle(X_data, y_data, groups):
     ds = Folds(
         x_data=X_data, y_data=y_data, groups=groups, shuffle=True, random_state=50
     )
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     assert type(ds.fold_indices) == tuple
@@ -327,7 +327,7 @@ def test_datasplit_groups_shuffle(X_data, y_data, groups):
 def test_folds_groups_no_validation(X_data, y_data, groups):
     # test initialisation with groups and no validation set
     ds = Folds(x_data=X_data, y_data=y_data, groups=groups, valid_size=None)
-    assert ds.x_data is X_data
+    assert ds.x_data == {"x_data": X_data}
     assert ds.y_data is y_data
     assert ds.groups is groups
     # check that 5 folds have been created

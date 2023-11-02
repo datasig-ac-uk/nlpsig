@@ -1219,6 +1219,7 @@ class TextEncoder:
         self,
         data_collator: DataCollator | None = None,
         compute_metrics: Callable[[EvalPrediction], dict] | None = None,
+        custom_loss: Callable[[float, float], float] | None = None,
         **kwargs,
     ) -> Trainer:
         """
@@ -1234,6 +1235,10 @@ class TextEncoder:
             The function that will be used to compute metrics at evaluation.
             Must take a `EvalPrediction` object and return a dictionary
             string to metric values, by default None.
+        custom_loss: Callable[[float, float], float] | None, optional
+            A function that computes a custom loss function. If passed,
+            will create a subclass of `Trainer` and override the
+            `custom_loss` method, by default None.
         **kwargs :
             Passed along to `Trainer()` class, by default None.
 
@@ -1264,17 +1269,40 @@ class TextEncoder:
             # use the existing data collator
             data_collator = self.data_collator
 
-        # initialise Trainer object
-        self.trainer = Trainer(
-            model=self.model,
-            args=self.training_args,
-            train_dataset=self.dataset_split["train"],
-            eval_dataset=self.dataset_split["validation"],
-            data_collator=data_collator,
-            tokenizer=self.tokenizer,
-            compute_metrics=compute_metrics,
-            **kwargs,
-        )
+        if custom_loss is None:
+            # initialise Trainer object
+            self.trainer = Trainer(
+                model=self.model,
+                args=self.training_args,
+                train_dataset=self.dataset_split["train"],
+                eval_dataset=self.dataset_split["validation"],
+                data_collator=data_collator,
+                tokenizer=self.tokenizer,
+                compute_metrics=compute_metrics,
+                **kwargs,
+            )
+        else:
+            # create subclass of Trainer
+            class MyTrainer(Trainer):
+                # override custom_loss class
+                def compute_loss(self, model, inputs, return_outputs=False):
+                    labels = inputs.pop("labels")
+                    outputs = model(**inputs)
+                    logits = outputs[0]
+                    loss = custom_loss(logits, labels)
+                    return (loss, outputs) if return_outputs else loss
+
+            # initialise custom Trainer object
+            self.trainer = MyTrainer(
+                model=self.model,
+                args=self.training_args,
+                train_dataset=self.dataset_split["train"],
+                eval_dataset=self.dataset_split["validation"],
+                data_collator=data_collator,
+                tokenizer=self.tokenizer,
+                compute_metrics=compute_metrics,
+                **kwargs,
+            )
 
         return self.trainer
 

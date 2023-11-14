@@ -34,6 +34,7 @@ def test_default_initialisation_datetime(
     assert obj.pooled_embeddings is None
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -104,6 +105,7 @@ def test_initialisation_with_id_and_label_datetime(
     assert obj.pooled_embeddings is None
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -202,6 +204,7 @@ def test_initialisation_with_reduced_emb_datetime(
     assert obj.pooled_embeddings is None
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -290,6 +293,7 @@ def test_initialisation_with_pooled_emb_datetime(
     assert (obj.pooled_embeddings == emb_pooled).all()
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -518,6 +522,7 @@ def test_obtain_feature_columns_string(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -530,6 +535,7 @@ def test_obtain_feature_columns_string_additional_binary(test_df_with_datetime, 
     # originally only have the time features
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -538,6 +544,7 @@ def test_obtain_feature_columns_string_additional_binary(test_df_with_datetime, 
     assert obj._obtain_feature_columns("binary_var") == ["binary_var"]
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
         "binary_var",
@@ -552,6 +559,7 @@ def test_obtain_feature_columns_string_additional_continuous(
     # originally only have the time features
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -560,6 +568,7 @@ def test_obtain_feature_columns_string_additional_continuous(
     assert obj._obtain_feature_columns("continuous_var") == ["continuous_var"]
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
         "continuous_var",
@@ -571,6 +580,7 @@ def test_obtain_feature_columns_list(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -585,6 +595,7 @@ def test_obtain_feature_columns_list_additional(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -599,6 +610,7 @@ def test_obtain_feature_columns_list_additional(test_df_with_datetime, emb):
     # check that it has added binary_var and continuous_var to ._feature_list
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
         "binary_var",
@@ -611,6 +623,7 @@ def test_obtain_feature_columns_none(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -622,6 +635,7 @@ def test_obtain_feature_columns_string_not_in(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -641,6 +655,7 @@ def test_obtain_feature_columns_list_not_in(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }
@@ -660,6 +675,7 @@ def test_obtain_feature_columns_type(test_df_with_datetime, emb):
     obj = PrepareData(original_df=test_df_with_datetime, embeddings=emb)
     assert set(obj._feature_list) == {
         "time_encoding",
+        "time_encoding_minute",
         "time_diff",
         "timeline_index",
     }

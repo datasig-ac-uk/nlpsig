@@ -201,6 +201,27 @@ class PrepareData:
         time_frac = seconds_into_cal_year / (365 * 24 * 60 * 60)
         return x.year + time_frac
 
+    @staticmethod
+    def _time_fraction_minute(x: pd.Timestamp) -> float:
+        """
+        [Private] Converts a date, x, as a fraction of a minute.
+        For example, 00:01:30 will be converted to 90/60=1.5.
+
+        Parameters
+        ----------
+        x : pd.Timestamp
+            Date.
+
+        Returns
+        -------
+        float
+            The time as a fraction of a minute.
+        """
+        # obtain the number of seconds of the time stamp
+        time = x.time()
+        total_seconds = time.hour * 3600 + time.minute * 60 + time.second
+        return total_seconds / 60
+
     def _set_time_features(self) -> pd.DataFrame:
         """
         [Private] Updates the dataframe in `.df` to include time features:
@@ -224,7 +245,7 @@ class PrepareData:
             print("[INFO] Adding time feature columns into dataframe in `.df`.")
 
         if "datetime" in self.df.columns:
-            self._feature_list += ["time_encoding", "time_diff"]
+            self._feature_list += ["time_encoding", "time_encoding_minute", "time_diff"]
 
             # checking 'datetime' column is datatime type
             self.df["datetime"] = pd.to_datetime(self.df["datetime"])
@@ -238,6 +259,11 @@ class PrepareData:
             )
             # reset index so that we can return to the starting index afterwards
             self.df = self.df.reset_index()
+
+            # add a column for the time fraction of the minute
+            self.df["time_encoding_minute"] = self.df["datetime"].map(
+                lambda t: self._time_fraction_minute(t)
+            )
 
             # sort by the id and the date
             self.df = self.df.sort_values(by=[self.id_column, "datetime"])

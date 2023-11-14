@@ -227,6 +227,7 @@ class PrepareData:
         [Private] Updates the dataframe in `.df` to include time features:
         - `time_encoding`: the date as a fraction of the year
            (only if 'datetime' is a column in `.df` dataframe).
+        - `time_encoding_minute`: the time as a fraction of a minute
         - `time_diff`: the difference in time (in minutes) between successive records
            (only if 'datetime' is a column in `.df` dataframe).
         - `timeline_index`: the index of each post for each id.

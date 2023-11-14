@@ -260,6 +260,10 @@ class PrepareData:
             # reset index so that we can return to the starting index afterwards
             self.df = self.df.reset_index()
 
+            # obtain time encoding for minute by computing the fraction of minute it is in
+            if self.verbose:
+                print("[INFO] Adding 'time_encoding_minute' feature...")
+
             # add a column for the time fraction of the minute
             self.df["time_encoding_minute"] = self.df["datetime"].map(
                 lambda t: self._time_fraction_minute(t)

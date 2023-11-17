@@ -29,38 +29,60 @@
 [rtd-link]:                 https://nlpsig.readthedocs.io/en/latest/?badge=latest
 <!-- prettier-ignore-end -->
 
+NLPSig (`nlpsig`) is a Python package for constructing streams/paths of
+embeddings obtained from transformers. The key contributions are:
+
+- A simple API for taking streams of textual data and constructing streams of
+  embeddings from transformers
+  - The
+    [`nlpsig.SentenceEncoder`](https://nlpsig.readthedocs.io/en/latest/encode_text.html#nlpsig.encode_text.SentenceEncoder)
+    and
+    [`nlpsig.TextEncoder`](https://nlpsig.readthedocs.io/en/latest/encode_text.html#nlpsig.encode_text.TextEncoder
+    classes allow you to pass in a corpus of text data (in a variety of formats)
+    and obtain corresponding embeddings using the
+    [`sentence-transformer`](https://github.com/UKPLab/sentence-transformers)
+    and HuggingFace
+    [`transformers`](https://github.com/huggingface/transformers) libraries,
+    respectively.
+  - The
+    [`nlpsig.PrepareData`](https://nlpsig.readthedocs.io/en/latest/data_preparation.html)
+    allows you to easily construct paths/streams of embeddings which can be used
+    for several downstream tasks.
+- Simple API for performing dimensionality reduction on the embeddings obtained
+  from transformers by some simple wrappers over popular dimensionality
+  reduction algorithms such as PCA, UMAP, t-SNE, etc.
+  - This is particularly useful if we wish to use path signatures in any
+    downstream model since the dimensionality of the embeddings obtained from
+    transformers is usually very high.
+  - We present some _Signature Network_ models for longitudinal NLP tasks in the
+    [`sig-networks`](https://github.com/ttseriotou/sig-networks) library which
+    uses these paths constructed in this library as inputs to neural networks
+    which utilise path signature methodology.
+- We also have simple classes for constructing train/test splits of the data and
+  for K-fold cross-validation which are specific for the Signature Networks in
+  the [`sig-networks`](https://github.com/ttseriotou/sig-networks) library.
+
 ## Installation
+
+NLPSig is available on PyPI and can be installed with `pip`:
 
 ```
 pip install nlpsig
 ```
 
-### From source:
+## Contributing
 
-In the root directory of this repository, perform a verbose, editable install
-with pip into a new virtual environment. For example using `conda`:
+To take advantage of `pre-commit`, which will automatically format your code and
+run some basic checks before you commit:
 
-```bash
-git clone git@github.com:datasig-ac-uk/nlpsig.git
-cd nlpsig
-conda create -n nlpsig python=3.8
-conda activate nlpsig
-pip install -v -e .
+```
+pip install pre-commit  # or brew install pre-commit on macOS
+pre-commit install  # will install a pre-commit hook into the git repo
 ```
 
-Or with `venv`:
-
-```bash
-python3 -m venv .venv
-source ./.venv/bin/activate
-pip install -v -e .
-```
-
-- For using within Jupyter, you can create a kernel with:
-
-```bash
-python -m ipykernel install --user --name nlpsig
-```
+After doing this, each time you commit, some linters will be applied to format
+the codebase. You can also/alternatively run `pre-commit run --all-files` to run
+the checks.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for more information on running the test
 suite using `nox`.

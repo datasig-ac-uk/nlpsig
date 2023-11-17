@@ -37,7 +37,7 @@ embeddings obtained from transformers. The key contributions are:
   - The
     [`nlpsig.SentenceEncoder`](https://nlpsig.readthedocs.io/en/latest/encode_text.html#nlpsig.encode_text.SentenceEncoder)
     and
-    [`nlpsig.TextEncoder`](https://nlpsig.readthedocs.io/en/latest/encode_text.html#nlpsig.encode_text.TextEncoder
+    [`nlpsig.TextEncoder`](https://nlpsig.readthedocs.io/en/latest/encode_text.html#nlpsig.encode_text.TextEncoder)
     classes allow you to pass in a corpus of text data (in a variety of formats)
     and obtain corresponding embeddings using the
     [`sentence-transformer`](https://github.com/UKPLab/sentence-transformers)

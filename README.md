@@ -48,9 +48,10 @@ embeddings obtained from transformers. The key contributions are:
     [`nlpsig.PrepareData`](https://nlpsig.readthedocs.io/en/latest/data_preparation.html)
     allows you to easily construct paths/streams of embeddings which can be used
     for several downstream tasks.
-- Simple API for performing dimensionality reduction on the embeddings obtained
-  from transformers by some simple wrappers over popular dimensionality
-  reduction algorithms such as PCA, UMAP, t-SNE, etc.
+- Simple API for performing dimensionality reduction with
+  [`nlpsig.DimReduce`](https://nlpsig.readthedocs.io/en/latest/dimensionality_reduction.html)
+  on the embeddings obtained from transformers by some simple wrappers over
+  popular dimensionality reduction algorithms such as PCA, UMAP, t-SNE, etc.
   - This is particularly useful if we wish to use path signatures in any
     downstream model since the dimensionality of the embeddings obtained from
     transformers is usually very high.
@@ -58,8 +59,10 @@ embeddings obtained from transformers. The key contributions are:
     [`sig-networks`](https://github.com/ttseriotou/sig-networks) library which
     uses these paths constructed in this library as inputs to neural networks
     which utilise path signature methodology.
-- We also have simple classes for constructing train/test splits of the data and
-  for K-fold cross-validation which are specific for the Signature Networks in
+- We also have
+  [simple classes](https://nlpsig.readthedocs.io/en/latest/classification_utils.html)
+  for constructing train/test splits of the data and for K-fold cross-validation
+  in which are general and are applied to examples in the Signature Networks in
   the [`sig-networks`](https://github.com/ttseriotou/sig-networks) library.
 
 ## Installation

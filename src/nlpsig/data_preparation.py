@@ -277,18 +277,16 @@ class PrepareData:
             if self.verbose:
                 print("[INFO] Adding 'time_diff' feature...")
 
+            def create_time_diff(x: pd.DataFrame) -> list[float]:
+                return [0.0] + [
+                    (x["datetime"].iloc[i] - x["datetime"].iloc[i - 1]).total_seconds()
+                    / 60
+                    for i in range(1, len(x))
+                ]
+
             self.df["time_diff"] = list(
                 self.df.groupby(self.id_column)
-                .apply(
-                    lambda x: [0.0]
-                    + [
-                        (
-                            x["datetime"].iloc[i] - x["datetime"].iloc[i - 1]
-                        ).total_seconds()
-                        / 60
-                        for i in range(1, len(x))
-                    ]
-                )
+                .apply(lambda x: create_time_diff(x))
                 .explode()
             )
         else:
@@ -308,10 +306,11 @@ class PrepareData:
         if self.verbose:
             print("[INFO] Adding 'timeline_index' feature...")
 
+        def create_timeline_index(x: pd.DataFrame) -> list[int]:
+            return list(range(1, len(x) + 1))
+
         self.df["timeline_index"] = list(
-            self.df.groupby(self.id_column)
-            .apply(lambda x: list(range(1, len(x) + 1)))
-            .explode()
+            self.df.groupby(self.id_column).apply(create_timeline_index).explode()
         )
 
         if "datetime" in self.df.columns:

@@ -65,6 +65,11 @@ embeddings obtained from transformers. The key contributions are:
   in which are general and are applied to examples in the Signature Networks in
   the [`sig-networks`](https://github.com/ttseriotou/sig-networks) library.
 
+NLPSig is used by the
+[`sig-networks`](https://github.com/ttseriotou/sig-networks) as detailed in our
+EACL demo paper
+[Sig-Networks Toolkit: Signature Networks for Longitudinal Language Modelling](https://aclanthology.org/2024.eacl-demo.24/).
+
 ## Installation
 
 NLPSig is available on PyPI and can be installed with `pip`:

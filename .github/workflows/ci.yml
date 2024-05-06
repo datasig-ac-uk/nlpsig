@@ -63,7 +63,7 @@ jobs:
         run: python -m pytest -ra --cov=nlpsig
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v4.1.0
+        uses: codecov/codecov-action@v4.3.1
 
   dist:
     name: Distribution build
